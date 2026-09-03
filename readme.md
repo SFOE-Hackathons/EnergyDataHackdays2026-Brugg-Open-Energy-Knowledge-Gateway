@@ -86,7 +86,7 @@ client_credentials flow
 
 Client credentials will be provided separately during the Hackdays or can be found in Cognito.
 
-**Never commit Client Secrets or access tokens to GitHub.**
+**!!! Never commit Client Secrets or access tokens to GitHub !!!.**
 
 ---
 
