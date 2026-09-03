@@ -87,8 +87,7 @@ def retrieve(gateway_url, access_token, question):
 
 def main():
     question = (
-        "Welche Rolle spielt Wasserkraft "
-        "in der Schweizer Stromversorgung?"
+        "Welche Rolle spielt Wasserkraft in der Schweizer Stromversorgung?"
     )
 
     print("Fetching access token...")
