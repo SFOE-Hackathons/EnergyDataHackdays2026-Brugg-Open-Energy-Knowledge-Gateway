@@ -10,57 +10,6 @@ Login-URL fuer die Konsole:
 https://542202863496.signin.aws.amazon.com/console
 
 
-# Open Energy Knowledge Gateway
-
-## Challenge
-
-A large amount of trusted Swiss energy knowledge is publicly available through reports, studies and publications from the Swiss Federal Office of Energy (SFOE).
-
-Today, organisations that want to use this knowledge in AI applications often build and maintain their own RAG systems around the same public information.
-
-Our challenge is to explore a different approach:
-
-> **Can trusted public energy knowledge be provided once and reused by many AI applications through an open standard such as MCP?**
-
-The goal of the Hackdays is to design, build and demonstrate an **Open Energy Knowledge Gateway** based on the Model Context Protocol (MCP).
-
----
-
-## Vision
-
-Instead of this:
-
-```text
-SFOE documents
-      ↓
-Organisation A → own RAG → AI Agent
-
-SFOE documents
-      ↓
-Organisation B → own RAG → AI Agent
-
-SFOE documents
-      ↓
-Organisation C → own RAG → AI Agent
-```
-
-We want to explore this:
-
-```text
-             SFOE public knowledge
-                     ↓
-              Knowledge Base
-                     ↓
-          Open Energy Knowledge Gateway
-                    MCP
-          ┌──────────┼──────────┐
-          ↓          ↓          ↓
-       Agent A    Agent B    Agent C
-```
-
-**Build the knowledge layer once. Connect many applications.**
-
----
 
 # Starting Point
 
