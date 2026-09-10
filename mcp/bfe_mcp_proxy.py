@@ -3,12 +3,17 @@
 
 from __future__ import annotations
 
+import html
 import json
 import os
+import platform
+import shutil
 import subprocess
 import sys
 import time
 import urllib.parse
+import webbrowser
+from pathlib import Path
 from typing import Any
 
 from source_links import load_source_map, rewrite_sources
@@ -38,8 +43,11 @@ _source_map = load_source_map()
 
 
 def run_curl(args: list[str], *, body: str) -> dict[str, Any]:
+    curl = shutil.which("curl") or shutil.which("curl.exe")
+    if curl is None:
+        raise RuntimeError("curl was not found on PATH")
     result = subprocess.run(
-        ["/usr/bin/curl", "--silent", "--show-error", "--fail", *args],
+        [curl, "--silent", "--show-error", "--fail", *args],
         input=body,
         check=True,
         capture_output=True,
@@ -49,7 +57,18 @@ def run_curl(args: list[str], *, body: str) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def read_client_secret() -> str:
+def read_environment_secret() -> str:
+    secret = os.environ.get(
+        "BFE_MCP_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
+    ).strip()
+    if not secret:
+        raise RuntimeError(
+            "Missing BFE_MCP_CLIENT_SECRET or CLIENT_SECRET environment variable"
+        )
+    return secret
+
+
+def read_macos_keychain_secret() -> str:
     result = subprocess.run(
         [
             "/usr/bin/security",
@@ -68,6 +87,13 @@ def read_client_secret() -> str:
     if not secret:
         raise RuntimeError("Cognito client secret is empty in macOS Keychain")
     return secret
+
+
+def read_client_secret() -> str:
+    """Read the secret from the platform-appropriate local store."""
+    if platform.system() == "Darwin":
+        return read_macos_keychain_secret()
+    return read_environment_secret()
 
 
 def require_config() -> None:
@@ -194,6 +220,37 @@ def call_gateway(question: str, request_id: Any) -> dict[str, Any]:
     return result
 
 
+def write_browser_result(question: str, gateway_result: dict[str, Any]) -> None:
+    display_result: Any = gateway_result
+    try:
+        nested_text = gateway_result["content"][0]["text"]
+        display_result = json.loads(nested_text)
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        pass
+
+    output_path = Path(__file__).resolve().parent.parent / "gateway_results.html"
+    formatted_result = json.dumps(display_result, indent=2, ensure_ascii=False)
+    page = (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Energy Gateway Results</title>"
+        "<style>body{font-family:system-ui,sans-serif;max-width:1100px;"
+        "margin:2rem auto;padding:0 1rem;background:#f4f6f8;color:#17202a}"
+        "h1{font-size:1.5rem}p{background:white;padding:1rem;"
+        "border-left:4px solid #1677ff}pre{white-space:pre-wrap;"
+        "background:white;padding:1.5rem;border:1px solid #d8dee4;"
+        "border-radius:8px;line-height:1.5;overflow:auto}</style>"
+        "</head><body><h1>Energy Gateway Results</h1><p><strong>Question:</strong> "
+        + html.escape(question)
+        + "</p><pre>"
+        + html.escape(formatted_result)
+        + "</pre></body></html>"
+    )
+    output_path.write_text(page, encoding="utf-8")
+    if os.environ.get("BFE_MCP_OPEN_BROWSER") == "1":
+        webbrowser.open(output_path.as_uri())
+
+
 def send(message: dict[str, Any]) -> None:
     print(json.dumps(message, ensure_ascii=False, separators=(",", ":")), flush=True)
 
@@ -292,7 +349,9 @@ def handle(message: dict[str, Any]) -> None:
             error(request_id, -32602, "retrievalQuery.text must be a non-empty string")
             return
         gateway_result = call_gateway(question.strip(), request_id)
-        result(request_id, rewrite_sources(gateway_result, _source_map))
+        gateway_result = rewrite_sources(gateway_result, _source_map)
+        write_browser_result(question.strip(), gateway_result)
+        result(request_id, gateway_result)
         return
 
     if method in {"resources/list", "resources/templates/list"}:

@@ -19,10 +19,8 @@ and relevance scores.
 
 ## Requirements
 
-- **macOS.** The client secret is read from the macOS Keychain via `/usr/bin/security`.
-  On Linux or Windows, replace `read_client_secret()` with your own secret source.
 - Python 3.10 or newer (uses PEP 604 unions). No third-party packages.
-- `curl` at `/usr/bin/curl`.
+- `curl` available on `PATH` (`curl.exe` is supported on Windows).
 
 ## Configuration
 
@@ -33,10 +31,16 @@ No credentials are stored in this repository. The adapter reads them at startup:
 | `BFE_MCP_CLIENT_ID` | yes | Cognito app client id. Also the Keychain account name. |
 | `BFE_MCP_TOKEN_URL` | yes | Cognito token endpoint, `https://<domain>/oauth2/token`. |
 | `BFE_MCP_GATEWAY_URL` | no | Defaults to the sandbox Gateway published in the repository readme. |
-| `BFE_MCP_KEYCHAIN_SERVICE` | no | Keychain service name. Defaults to `codex-mcp-bfe-public-knowledge`. |
+| `BFE_MCP_KEYCHAIN_SERVICE` | macOS only, no | Keychain service name. Defaults to `codex-mcp-bfe-public-knowledge`. |
+| `BFE_MCP_CLIENT_SECRET` | Windows/Linux, yes | Cognito client secret. Prefer this name; `CLIENT_SECRET` remains supported for compatibility. |
 
-The **client secret is never passed through the environment or the command line** —
-it is looked up in the Keychain by (`BFE_MCP_CLIENT_ID`, `BFE_MCP_KEYCHAIN_SERVICE`).
+The adapter selects the secret store from the operating system:
+
+| Operating system | Secret source |
+|---|---|
+| macOS | Keychain lookup by (`BFE_MCP_CLIENT_ID`, `BFE_MCP_KEYCHAIN_SERVICE`) |
+| Windows | `BFE_MCP_CLIENT_SECRET` environment variable, normally loaded from the gitignored `.env` file |
+| Linux/other | `BFE_MCP_CLIENT_SECRET` environment variable |
 
 ### Where to get these values
 
@@ -55,7 +59,7 @@ If you have access to the sandbox AWS account, you can also read them yourself:
 > Never commit the client secret, an access token, or a populated `.mcp.json`
 > containing either of them.
 
-### Store the secret in the Keychain
+### macOS: store the secret in the Keychain
 
 Run this and paste the secret at the prompt, so it does not end up in your shell
 history. Replace the account name with your actual client id:
@@ -69,6 +73,22 @@ Verify it can be read back:
 ```bash
 security find-generic-password -w -a "<CLIENT_ID>" -s codex-mcp-bfe-public-knowledge
 ```
+
+### Windows: store the secret in `.env`
+
+Create `.env` in the repository root. It is ignored by Git:
+
+```dotenv
+BFE_MCP_CLIENT_ID=<CLIENT_ID>
+BFE_MCP_TOKEN_URL=https://<domain>.auth.eu-central-1.amazoncognito.com/oauth2/token
+BFE_MCP_CLIENT_SECRET=<CLIENT_SECRET>
+```
+
+The checked-in `.vscode/mcp.json` loads this file. Adjust its Python executable
+path if your virtual environment is located elsewhere. Do not commit `.env`.
+
+On Linux, export the same three variables in the environment that starts the MCP
+client instead.
 
 ## Wiring it into a client
 
@@ -92,6 +112,9 @@ Create `.mcp.json` in your working directory:
 }
 ```
 
+On Windows or Linux, also make `BFE_MCP_CLIENT_SECRET` available to the process.
+On macOS, leave it out: the adapter reads the secret from Keychain.
+
 ### Codex
 
 In `.codex/config.toml`:
@@ -110,6 +133,9 @@ enabled = true
 BFE_MCP_CLIENT_ID = "<CLIENT_ID>"
 BFE_MCP_TOKEN_URL = "https://<domain>.auth.eu-central-1.amazoncognito.com/oauth2/token"
 ```
+
+On Windows or Linux, also make `BFE_MCP_CLIENT_SECRET` available to Codex. On
+macOS, leave it out so the adapter uses Keychain.
 
 Retrieval can take a while on long queries, so keep the tool timeout generous.
 

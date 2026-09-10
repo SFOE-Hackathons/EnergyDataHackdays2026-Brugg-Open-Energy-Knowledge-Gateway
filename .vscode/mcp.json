@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "bfe-public-knowledge": {
+      "type": "stdio",
+      "command": "C:\\Users\\Constructor Academy\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "args": [
+        "${workspaceFolder}\\mcp\\bfe_mcp_proxy.py"
+      ],
+      "envFile": "${workspaceFolder}\\.env",
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
