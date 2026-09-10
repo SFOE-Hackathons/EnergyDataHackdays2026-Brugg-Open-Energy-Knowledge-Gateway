@@ -1,0 +1,15 @@
+# SFOE Open Energy Knowledge Agent
+# Install with:
+#   pip install -r requirements.txt
+
+# AWS Bedrock / AWS API access
+boto3>=1.34,<2
+
+# HTTP calls to Cognito and the MCP gateway
+requests>=2.31,<3
+
+# Load local configuration from .env
+python-dotenv>=1.0,<2
+
+# Web demo UI
+streamlit>=1.36,<2
