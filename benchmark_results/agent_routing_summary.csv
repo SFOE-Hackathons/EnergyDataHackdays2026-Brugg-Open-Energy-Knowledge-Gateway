@@ -1,0 +1,5 @@
+group,question_count,routing_correct,routing_accuracy,schema_valid,schema_valid_rate,initial_mcp_success,initial_mcp_success_rate,final_mcp_success,final_mcp_success_rate,agent_route_success,agent_route_success_rate,avg_router_latency_seconds,avg_mcp_latency_seconds
+OVERALL,21,21,1.0,21,1.0,21,1.0,21,1.0,21,1.0,1.1669,4.4903
+SEARCH,7,7,1.0,7,1.0,7,1.0,7,1.0,7,1.0,1.5411,3.2884
+TIMELINE,7,7,1.0,7,1.0,7,1.0,7,1.0,7,1.0,1.1764,4.6787
+CHART,7,7,1.0,7,1.0,7,1.0,7,1.0,7,1.0,0.7832,5.5038
