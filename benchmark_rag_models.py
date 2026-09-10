@@ -157,57 +157,218 @@ CANDIDATE_MODELS = [
 
 
 # ============================================================
-# 5. MULTILINGUAL BENCHMARK QUESTIONS
+# 5. COMPLETE RAG BENCHMARK QUESTION SET
 # ============================================================
 # GOAL
 # ------------------------------------------------------------
-# Test models with the same SFOE RAG workflow in German,
-# English and French.
+# Evaluate candidate LLMs using a broad and reproducible set
+# of questions for the SFOE Open Energy Knowledge Gateway.
 #
 # INPUT
 # ------------------------------------------------------------
-# Natural-language questions.
+# Three question groups:
+#
+# CORE:
+#   Representative questions provided in the challenge
+#   materials.
+#
+# EXTENDED:
+#   Additional multilingual questions created by our team.
+#
+# STRESS:
+#   Harder questions designed to test:
+#       - factual grounding
+#       - citation precision
+#       - quantitative reasoning
+#       - projection handling
+#       - conflicting / nuanced evidence
+#       - ability to say "insufficient evidence"
 #
 # OUTPUT
 # ------------------------------------------------------------
-# Each question is retrieved once and evaluated across every
-# candidate model.
+# A benchmark covering:
+#
+#   English
+#   German
+#   French
+#
+# and several different types of RAG behaviour.
 # ============================================================
 
+
 BENCHMARK_QUESTIONS = [
+    # ========================================================
+    # A. CORE QUESTIONS
+    # ========================================================
+    # These are the representative questions identified from
+    # the challenge materials.
+    # ========================================================
     {
-        "id": "DE_01",
+        "id": "CORE_01",
+        "group": "core",
+        "category": "general_knowledge",
+        "language": "en",
+        "question": "What role does hydropower play in Switzerland?",
+    },
+    {
+        "id": "CORE_02",
+        "group": "core",
+        "category": "policy_targets",
+        "language": "en",
+        "question": "What are Switzerland's renewable electricity targets?",
+    },
+    {
+        "id": "CORE_03",
+        "group": "core",
+        "category": "historical_development",
+        "language": "en",
+        "question": "How has photovoltaic production developed in Switzerland?",
+    },
+    {
+        "id": "CORE_04",
+        "group": "core",
+        "category": "energy_policy",
+        "language": "de",
+        "question": "Welche Rolle spielt Wasserstoff in der Schweizer Energiepolitik?",
+    },
+    {
+        "id": "CORE_05",
+        "group": "core",
+        "category": "policy_targets",
+        "language": "fr",
+        "question": "Quels sont les objectifs suisses en matière d'énergie renouvelable?",
+    },
+    # ========================================================
+    # B. EXTENDED MULTILINGUAL QUESTIONS
+    # ========================================================
+    # These are the questions from our previous benchmark.
+    #
+    # We keep them because they allow us to compare similar
+    # topics across several languages.
+    # ========================================================
+    {
+        "id": "EXT_DE_01",
+        "group": "extended",
+        "category": "general_knowledge",
         "language": "de",
         "question": "Welche Rolle spielt Wasserkraft in der Schweizer Stromversorgung?",
     },
     {
-        "id": "DE_02",
+        "id": "EXT_DE_02",
+        "group": "extended",
+        "category": "general_knowledge",
         "language": "de",
         "question": "Welche Bedeutung hat Photovoltaik "
         "für die Schweizer Energieversorgung?",
     },
     {
-        "id": "EN_01",
+        "id": "EXT_EN_01",
+        "group": "extended",
+        "category": "general_knowledge",
         "language": "en",
         "question": "What role does hydropower play "
         "in Switzerland's electricity supply?",
     },
     {
-        "id": "EN_02",
+        "id": "EXT_EN_02",
+        "group": "extended",
+        "category": "energy_policy",
         "language": "en",
         "question": "What does SFOE say about hydrogen in Switzerland's energy system?",
     },
     {
-        "id": "FR_01",
+        "id": "EXT_FR_01",
+        "group": "extended",
+        "category": "general_knowledge",
         "language": "fr",
         "question": "Quel rôle joue l'hydroélectricité "
         "dans l'approvisionnement électrique suisse ?",
     },
     {
-        "id": "FR_02",
+        "id": "EXT_FR_02",
+        "group": "extended",
+        "category": "general_knowledge",
         "language": "fr",
         "question": "Quelle importance le photovoltaïque "
         "a-t-il pour l'approvisionnement énergétique suisse ?",
+    },
+    # ========================================================
+    # C. STRESS / DIAGNOSTIC QUESTIONS
+    # ========================================================
+    # These questions are intentionally more difficult.
+    #
+    # Their purpose is NOT only to obtain an answer.
+    # Their purpose is to reveal differences between models.
+    # ========================================================
+    # --------------------------------------------------------
+    # STRESS 1: NUMERIC + POLICY TARGETS
+    # --------------------------------------------------------
+    # Tests whether the model can correctly associate numbers
+    # with years and avoid mixing different policy targets.
+    # --------------------------------------------------------
+    {
+        "id": "STRESS_01",
+        "group": "stress",
+        "category": "numeric_policy",
+        "language": "de",
+        "question": "Welche Ziele nennt das BFE für die Stromproduktion "
+        "aus erneuerbaren Energien bis 2035 und 2050?",
+    },
+    # --------------------------------------------------------
+    # STRESS 2: FUTURE ROLE / PROJECTION HANDLING
+    # --------------------------------------------------------
+    # Tests whether the model distinguishes current facts from
+    # forward-looking statements.
+    # --------------------------------------------------------
+    {
+        "id": "STRESS_02",
+        "group": "stress",
+        "category": "projection",
+        "language": "en",
+        "question": "According to SFOE sources, how is the role of "
+        "hydropower expected to change as solar and wind "
+        "generation increase?",
+    },
+    # --------------------------------------------------------
+    # STRESS 3: SOURCE PRECISION / POSSIBLE NUANCE
+    # --------------------------------------------------------
+    # We have already observed passages that use formulations
+    # such as electricity demand and electricity production.
+    #
+    # A strong model should explain the wording carefully
+    # instead of merging different statements blindly.
+    # --------------------------------------------------------
+    {
+        "id": "STRESS_03",
+        "group": "stress",
+        "category": "source_precision",
+        "language": "de",
+        "question": "Was genau bedeutet die häufig genannte Zahl von "
+        "rund 58 Prozent für die Schweizer Wasserkraft im "
+        "Jahr 2020? Bezieht sie sich auf Stromproduktion "
+        "oder Strombedarf? Erkläre dies anhand der "
+        "verfügbaren Quellen.",
+    },
+    # --------------------------------------------------------
+    # STRESS 4: INSUFFICIENT-EVIDENCE / ABSTENTION TEST
+    # --------------------------------------------------------
+    # A trustworthy RAG assistant must NOT invent an answer
+    # when the retrieved evidence is insufficient.
+    #
+    # The correct behaviour may therefore be:
+    #
+    #     "The available sources do not provide enough
+    #      information to answer this exactly."
+    #
+    # --------------------------------------------------------
+    {
+        "id": "STRESS_04",
+        "group": "stress",
+        "category": "insufficient_evidence",
+        "language": "en",
+        "question": "What was the exact electricity production of "
+        "every individual hydropower plant in Switzerland "
+        "in 2024?",
     },
 ]
 
@@ -583,32 +744,50 @@ Passage:
 # ============================================================
 # 12. BUILD RAG PROMPT
 # ============================================================
-
-
 def build_prompt(
     question,
     language,
     context,
 ):
     """
+    ============================================================
     GOAL
-    ----------------------------------------------------------
-    Create identical grounded instructions for every model.
+    ============================================================
+    Create one strict and identical RAG answer-generation
+    prompt for every candidate model.
 
+    ============================================================
     INPUT
-    ----------------------------------------------------------
+    ============================================================
     question:
         Benchmark question.
 
     language:
-        Expected output language.
+        Expected response language.
 
     context:
-        Same retrieved SFOE evidence for every candidate.
+        Retrieved SFOE evidence. Every candidate model receives
+        exactly the same context.
 
+    ============================================================
     OUTPUT
-    ----------------------------------------------------------
-    Prompt sent to each LLM.
+    ============================================================
+    Prompt instructing the model to:
+        - answer only from SFOE evidence
+        - avoid unsupported claims
+        - cite claims precisely
+        - distinguish facts from projections
+        - handle truncated evidence carefully
+        - explicitly abstain when evidence is insufficient
+        - answer in the requested language
+
+    ============================================================
+    WHY
+    ============================================================
+    A strict common prompt makes the comparison between models
+    fair and tests how well each model follows grounded RAG
+    instructions.
+    ============================================================
     """
 
     language_names = {
@@ -618,46 +797,182 @@ def build_prompt(
     }
 
     expected_language = language_names.get(
-        language, "the same language as the question"
+        language,
+        "the same language as the question",
     )
 
     return f"""
 You are an assistant for the Swiss Federal Office of Energy
 (SFOE / BFE) Open Energy Knowledge Gateway.
 
-Answer the question using ONLY the retrieved SFOE evidence
-provided below.
+Your task is to answer the user's question using ONLY the
+retrieved SFOE evidence provided below.
 
-RULES:
+============================================================
+STRICT RULES
+============================================================
 
-1. Use only information contained in the sources.
-2. Do not invent facts.
-3. Do not use unsupported external knowledge.
-4. Answer in {expected_language}.
-5. Cite factual claims using [1], [2], [3], etc.
-6. Citation numbers must refer to the numbered sources below.
-7. If the available evidence is insufficient, clearly say so.
-8. Be concise, clear and factual.
-9. Do not include a separate bibliography.
-10. If Projection: True, do NOT present forward-looking
-    statements as measured historical facts.
-11. If Truncated: True, treat the passage cautiously because
-    it may be incomplete.
-12. Do not invent page numbers because page numbers are not
-    available in this corpus.
+1. USE ONLY THE PROVIDED EVIDENCE
+
+Do not use external knowledge, assumptions, prior knowledge,
+or information that is not contained in the supplied SFOE
+evidence.
 
 
-QUESTION:
+2. DO NOT INVENT OR INFER UNSUPPORTED FACTS
+
+Every factual statement must be supported by at least one
+retrieved source.
+
+Do not make a claim stronger, broader or more specific than
+the evidence supports.
+
+Example:
+
+Evidence:
+    "Hydropower helps manage critical supply situations."
+
+Do NOT automatically rewrite this as:
+    "Hydropower guarantees grid stability."
+
+These are not equivalent statements.
+
+
+3. CITE FACTUAL CLAIMS PRECISELY
+
+Use citations such as:
+
+    [1]
+    [2]
+    [1][3]
+
+Place citations directly after the factual statement they
+support.
+
+Citation numbers must correspond exactly to the numbered
+sources provided below.
+
+Do not cite a source merely because it discusses the same
+general topic.
+
+
+4. HANDLE NUMBERS PRECISELY
+
+Be especially careful with:
+
+- percentages
+- years
+- energy production
+- electricity demand
+- installed capacity
+- annual production
+- policy targets
+
+Do not confuse:
+
+- production with demand
+- installed capacity with generation
+- historical values with targets
+- national totals with individual plants
+
+
+5. DISTINGUISH HISTORICAL FACTS FROM PROJECTIONS
+
+If a source has:
+
+    Projection: True
+
+do NOT present its forward-looking information as an observed
+historical fact.
+
+Use wording such as:
+
+    expected
+    projected
+    planned
+    target
+    scenario
+
+when appropriate.
+
+
+6. HANDLE TRUNCATED SOURCES CAREFULLY
+
+If:
+
+    Truncated: True
+
+the passage may be incomplete.
+
+Do not make a strong claim that depends on potentially missing
+information.
+
+
+7. ADMIT INSUFFICIENT EVIDENCE
+
+If the retrieved evidence does not contain enough information
+to answer the question accurately, explicitly say so.
+
+Do NOT guess.
+
+For example:
+
+    "The retrieved SFOE sources do not provide enough
+    information to answer this question exactly."
+
+This is preferable to inventing an answer.
+
+
+8. ANSWER THE QUESTION DIRECTLY
+
+Focus only on information relevant to the user's question.
+
+Do not add unnecessary background information.
+
+
+9. LANGUAGE
+
+Answer in {expected_language}.
+
+
+10. STYLE
+
+Be concise, clear, factual and professional.
+
+Use short paragraphs or bullets when this improves clarity.
+
+
+11. SOURCES
+
+Do NOT create a separate bibliography or source list.
+
+The application displays the sources separately.
+
+
+12. PAGE NUMBERS
+
+Do NOT invent page numbers.
+
+Page numbers are not available in this SFOE corpus.
+
+
+============================================================
+QUESTION
+============================================================
 
 {question}
 
 
-RETRIEVED SFOE EVIDENCE:
+============================================================
+RETRIEVED SFOE EVIDENCE
+============================================================
 
 {context}
 
 
-ANSWER:
+============================================================
+ANSWER
+============================================================
 """
 
 
