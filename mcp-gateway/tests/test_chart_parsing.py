@@ -31,14 +31,49 @@ BLOCK_D_MULTI_COLUMN_WITH_COMMA_PROSE = (
 class TestExtractDataBlocks:
     def test_extracts_single_block(self):
         text = f"some passage <data>{BLOCK_A_TWO_RANGE_COLUMNS}</data> more text"
-        assert extract_data_blocks(text) == [BLOCK_A_TWO_RANGE_COLUMNS]
+        assert extract_data_blocks(text) == [
+            {"content": BLOCK_A_TWO_RANGE_COLUMNS, "is_truncated": False}
+        ]
 
     def test_extracts_multiple_blocks(self):
         text = "<data>first</data> filler <data>second</data>"
-        assert extract_data_blocks(text) == ["first", "second"]
+        assert [b["content"] for b in extract_data_blocks(text)] == ["first", "second"]
 
     def test_returns_empty_list_when_no_data_tag(self):
         assert extract_data_blocks("just a plain text passage, no tags here") == []
+
+
+class TestTruncatedDataBlocksAreRecovered:
+    """The upstream chunker splits on size, so a chunk can open a `<data>`
+    block and end before closing it. Matching only balanced blocks threw away
+    every complete row in such a block, silently."""
+
+    TEXT = "<title>PV</title> <data>Year,Capacity (MW) 2023,1500 2024,1800 2025,"
+
+    def test_partial_block_is_returned_rather_than_dropped(self):
+        assert len(extract_data_blocks(self.TEXT)) == 1
+
+    def test_partial_block_is_flagged(self):
+        assert extract_data_blocks(self.TEXT)[0]["is_truncated"] is True
+
+    def test_complete_rows_in_a_partial_block_still_parse(self):
+        parsed = parse_data_block(extract_data_blocks(self.TEXT)[0]["content"])
+        assert parsed["rows"][0]["Capacity (MW)"]["value"] == 1500.0
+        assert parsed["rows"][1]["Capacity (MW)"]["value"] == 1800.0
+
+    def test_severed_final_value_is_not_invented(self):
+        parsed = parse_data_block(extract_data_blocks(self.TEXT)[0]["content"])
+        severed = parsed["rows"][-1]["Capacity (MW)"]
+        assert severed["value"] is None
+        assert severed["kind"] == "text"
+
+    def test_a_closed_block_followed_by_an_open_one_yields_both(self):
+        blocks = extract_data_blocks("<data>Year,V 2001,1</data> mid <data>Year,V 2002,")
+        assert [b["is_truncated"] for b in blocks] == [False, True]
+
+    def test_closing_tag_after_the_last_open_tag_means_nothing_is_dangling(self):
+        blocks = extract_data_blocks("<data>Year,V 2001,1</data> trailing prose")
+        assert [b["is_truncated"] for b in blocks] == [False]
 
 
 class TestExtractTitle:

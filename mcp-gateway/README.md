@@ -35,6 +35,39 @@ and `published_at`.
 }
 ```
 
+## Passage annotations
+
+The knowledge base returns text with no indication of what its numbers *mean*.
+The same magnitude — 704.9 MW — appears in one document as photovoltaic
+capacity **sold** and in another as capacity **installed**; elsewhere the split
+is between capacity added in one year and the cumulative stock at year end.
+Nothing upstream separates these, so two passages can look comparable while
+measuring different things.
+
+Every result from every tool therefore carries these fields, derived from the
+passage text in `semantics.py`:
+
+| Field | Meaning |
+|---|---|
+| `bases` | What the numbers measure: `sales`, `installed_annual`, `installed_cumulative`, `production`. A **list**, each entry `{basis, evidence}` |
+| `years_covered` | `{min, max, years}` — the years the passage's own content names |
+| `is_projection` | The passage carries forward-looking figures, not only measured ones |
+| `is_truncated` | The upstream chunker cut the passage mid-content |
+| `truncation_reasons` | Why it was flagged |
+
+Three properties are deliberate and worth not "simplifying" away:
+
+- **`bases` is a list, not a single label.** One corpus chunk states PV systems
+  sold, the 90 % of those assumed installed, *and* a running total. Collapsing
+  that to one value would invent a distinction the source never made.
+- **An empty `bases` means the text did not say.** `installiert` is the most
+  common marker in the corpus and the least specific — on its own it cannot
+  separate this year's additions from the total — so it is not a marker at all.
+  A wrong basis is worse than no basis, because it reads as authoritative.
+- **`years_covered` is not `queried_year`.** A passage retrieved by a query for
+  2021 routinely holds a 2002–2022 series. `queried_year` (timeline tool only)
+  records what was *asked*; never group or attribute figures by it.
+
 ## Tools
 
 ### `search_energy_knowledge`
@@ -46,7 +79,8 @@ Ad-hoc semantic search. Returns ranked, verbatim passages.
 | `query` | string | — | Natural-language search query |
 | `max_results` | int | 5 | 1–25 |
 
-Returns `{result_count, results}`, each result `{rank, score, text, source}`.
+Returns `{result_count, results}`, each result `{rank, score, text, source}`
+plus the annotations above.
 
 ### `get_metric_timeline`
 
@@ -62,6 +96,10 @@ Queries once per year across a range, returning a flat array tagged with
 
 Returns `{metric, start_year, end_year, result_count, data}`, where each `data`
 entry is a search result plus `queried_year`.
+
+> `queried_year` records only what was asked, **not** what the passage
+> contains. Use `years_covered` for anything that groups, charts or attributes
+> figures by year; treat `queried_year` as a retrieval trace.
 
 Deliberately **not** done by this tool, and left to the calling agent:
 
@@ -88,7 +126,15 @@ Returns `{topic, probes_run, chart_count, charts}`. Each chart:
 {
   "title": null,
   "columns": ["Year", "Wind_Energy_Production_TJ/a"],
+  "column_bases": {"Year": [],
+                   "Wind_Energy_Production_TJ/a": [{"basis": "production",
+                                                    "evidence": "Production"}]},
+  "years_covered": {"min": 1990, "max": 2024, "years": [1990, 1992]},
   "precision": "estimated",
+  "is_estimate": true,
+  "extraction_method": "chart_visual_read",
+  "is_projection": false,
+  "is_truncated": false,
   "note": "Note: These values are estimated based on visual interpretation…",
   "row_count": 35,
   "rows": [{"Year": {"raw": "1990", "value": 1990.0, "min": null, "max": null, "kind": "exact"},
@@ -105,13 +151,34 @@ the figure by eye — either given as a `min`/`max` range, or delivered as
 single numbers that the transcription's own `note` admits are estimates.
 Callers must not present estimated values as precise figures, must not invent
 the midpoint of a range, and should surface `note` alongside an estimated
-series.
+series. `is_estimate` is the boolean form, and `extraction_method` says how the
+numbers were obtained — `table`, `chart_label`, `chart_visual_read`, or `null`
+when the transcription does not say. It is deliberately `null` rather than
+defaulting to `table`: an unearned `table` would launder an eyeballed number
+into an official published figure.
 
-Coverage is opportunistic and **thin**: only a minority of figures were
-transcribed with usable data, and in this corpus they cluster heavily in the
-*Schweizerische Statistik der erneuerbaren Energien* series. A topic returning
-zero charts is a normal outcome, not an error — fall back to
-`search_energy_knowledge`.
+`column_bases` is keyed per column, not per chart, because a single figure
+routinely plots annual additions against cumulative stock. The label column
+(`Year`) gets no basis. Passage context is consulted **only** for
+single-series charts — on a two-column chart it labelled the
+`Annual_Installation_MW_Jahr` column `installed_cumulative`, exactly the
+confusion the field exists to catch.
+
+`years_covered` is read from the parsed row labels, not by scanning the block
+text. A raw `<data>` block is bare CSV, so a four-digit measurement sits beside
+a four-digit year: `1994,1900` and `2018,1945` made text scanning report a wind
+chart as spanning 1900–2100.
+
+Coverage is opportunistic: only a minority of figures were transcribed with
+usable data. A topic returning zero charts is a normal outcome, not an error —
+fall back to `search_energy_knowledge`.
+
+The probe templates matter more than they look. The publications are German but
+the `<data>` blocks are transcribed in **English** (`Year,Installed PV Capacity
+(MW)`), so an all-German probe set retrieves the prose around a figure while
+missing the chunk holding its numbers. Measured across seven topics, German-only
+probes found 3 charts where the current mixed set finds 30. Re-tune
+`QUERY_PROBE_TEMPLATES` only against a spread of topics, never by assumption.
 
 ## Known limitations
 
@@ -120,6 +187,16 @@ zero charts is a normal outcome, not an error — fall back to
   base with a parser that preserves page anchors — outside this service.
 - **`language` is unreliable.** Most documents are German but are tagged `"en"`.
 - **Chart data is sparse.** See `get_chart_data` above.
+- **Upstream chunking splits on size, not structure.** Chunks routinely open a
+  tag and end before closing it — `<extraction>` was observed opening three
+  times and closing once in a single sample, and `</relationships>` appears
+  with no opener. A `<data>` block can be severed mid-value. The gateway cannot
+  fix the chunking; it recovers the complete rows of a partial block and flags
+  the passage with `is_truncated` instead of presenting it as whole. Detection
+  is heuristic: a flagged passage deserves suspicion, an unflagged one is not a
+  guarantee. A real fix means re-ingesting with structure-aware chunking.
+- **A figure's `<title>`/`<caption>` often land in a different chunk than its
+  `<data>`**, which is why `title` is frequently `null` on returned charts.
 - Passages are extracted from PDFs including chart/table descriptions, so text
   quality varies.
 
@@ -159,6 +236,7 @@ config.py           Config.from_env() — env-var configuration
 knowledge_base.py   KnowledgeBaseClient: auth, query, response normalization
 public_source.py    PublicSourceResolver: document -> public download URL
 chart_parsing.py    pure parsing of embedded chart/table data blocks
+semantics.py        basis, years_covered, truncation and estimate annotation
 tools/
   base.py           BaseTool — self-describing tool contract
   search.py         SearchEnergyKnowledgeTool

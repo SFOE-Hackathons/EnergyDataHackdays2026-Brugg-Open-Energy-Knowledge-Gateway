@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py config.py knowledge_base.py chart_parsing.py public_source.py .
+COPY server.py config.py knowledge_base.py chart_parsing.py public_source.py semantics.py .
 COPY tools/ tools/
 
 ENV HOST=0.0.0.0

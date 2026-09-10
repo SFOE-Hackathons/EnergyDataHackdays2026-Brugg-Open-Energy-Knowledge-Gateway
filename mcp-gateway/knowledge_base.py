@@ -15,6 +15,12 @@ import requests
 
 from config import Config
 from public_source import PublicSourceResolver, parse_document_name
+from semantics import (
+    detect_projection,
+    detect_truncation,
+    extract_years_covered,
+    infer_bases,
+)
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
 RETRIEVE_TOOL_NAME = "bfe-public-knowledge___Retrieve"
@@ -119,10 +125,17 @@ class KnowledgeBaseClient:
             metadata = item.get("metadata", {})
             title = metadata.get("_document_title")
             published_at, _ = parse_document_name(title)
+            text = item.get("content", {}).get("text", "")
+            truncation = detect_truncation(text)
             cleaned.append(
                 {
                     "score": item.get("score"),
-                    "text": item.get("content", {}).get("text", ""),
+                    "text": text,
+                    "years_covered": extract_years_covered(text),
+                    "bases": infer_bases(text),
+                    "is_projection": detect_projection(text),
+                    "is_truncated": truncation["is_truncated"],
+                    "truncation_reasons": truncation["reasons"],
                     "source": {
                         "title": title,
                         "published_at": published_at,

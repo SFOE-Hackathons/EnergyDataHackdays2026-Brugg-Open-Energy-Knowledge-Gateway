@@ -18,6 +18,13 @@ import re
 _DATA_BLOCK_RE = re.compile(r"<data>(.*?)</data>", re.DOTALL)
 _TITLE_RE = re.compile(r"<title>(.*?)</title>", re.DOTALL)
 
+# The upstream chunker splits on size, so a chunk can open a `<data>` block
+# and end before closing it. Matching only balanced blocks discards such a
+# block wholesale - including every complete row in it - and does so silently.
+# This recovers the partial block instead, so its rows survive and the caller
+# is told the tail is missing.
+_UNTERMINATED_DATA_RE = re.compile(r"<data>((?:(?!</?data>).)*)$", re.DOTALL)
+
 # A data row starts at a 4-digit year, optionally annotated in parentheses
 # (e.g. "2022 (estimated)"), followed by a comma. Everything before the first
 # such match is the header; everything between/after subsequent matches is a
@@ -54,9 +61,26 @@ _EXACTNESS_CLAIM_RE = re.compile(
 )
 
 
-def extract_data_blocks(text: str) -> list[str]:
-    """Return the inner content of every `<data>...</data>` block in text."""
-    return [block.strip() for block in _DATA_BLOCK_RE.findall(text)]
+def extract_data_blocks(text: str) -> list[dict]:
+    """Return every `<data>` block in text, closed or not.
+
+    Each entry is ``{"content": str, "is_truncated": bool}``. A block whose
+    closing tag never arrived is still returned, with `is_truncated` set: its
+    complete rows are real data and dropping them loses more than it protects,
+    but its final row may have been cut mid-value.
+    """
+    blocks = [
+        {"content": block.strip(), "is_truncated": False}
+        for block in _DATA_BLOCK_RE.findall(text)
+    ]
+
+    unterminated = _UNTERMINATED_DATA_RE.search(text)
+    if unterminated:
+        content = unterminated.group(1).strip()
+        if content:
+            blocks.append({"content": content, "is_truncated": True})
+
+    return blocks
 
 
 def extract_title(text: str) -> str | None:

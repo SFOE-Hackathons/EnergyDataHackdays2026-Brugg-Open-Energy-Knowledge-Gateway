@@ -24,7 +24,18 @@ class SearchEnergyKnowledgeTool(BaseTool):
         "download_url is null for the few documents that could not be "
         "matched to a public record; cite those by title and published_at "
         "alone rather than constructing a URL. Page numbers are not "
-        "available in this corpus, so results cannot be cited by page."
+        "available in this corpus, so results cannot be cited by page. "
+        "Each passage is also annotated: years_covered is the span of years "
+        "the passage's own text mentions, which is what its figures actually "
+        "describe; bases lists what its numbers measure - sales, "
+        "installed_annual, installed_cumulative or production - each with the "
+        "phrase that evidenced it, because the same magnitude means different "
+        "things across these and passages routinely mix several. An empty "
+        "bases list means the text did not disambiguate, so do not assume "
+        "one. is_projection flags forward-looking figures that must not be "
+        "reported as measured, and is_truncated (with truncation_reasons) "
+        "flags a passage the upstream chunker cut mid-content, whose final "
+        "value may be incomplete."
     )
 
     def run(

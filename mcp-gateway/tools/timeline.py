@@ -20,7 +20,12 @@ class MetricTimelineTool(BaseTool):
         "Query Swiss federal energy publications once per year across a "
         "year range for a given metric (e.g. \"solar PV installed "
         "capacity\") and return a flat list of source-attributed passages, "
-        "each tagged with the year it was queried for. Multiple entries can "
+        "each tagged with the year it was queried for. queried_year records "
+        "only what was asked, NOT what the passage contains - a passage "
+        "retrieved for 2021 routinely holds a series spanning 2002-2022 - so "
+        "never group, chart or attribute figures by it. Use years_covered, "
+        "which is extracted from the passage's own text, and treat "
+        "queried_year as a retrieval trace only. Multiple entries can "
         "share the same queried_year when different source documents cover "
         "it; entries are returned as-is with no numeric value extracted and "
         "no deduplication or reconciliation performed across sources, so "
@@ -32,7 +37,12 @@ class MetricTimelineTool(BaseTool):
         "directly at the original PDF, which anyone can open without "
         "credentials; download_url is null for the few documents that could "
         "not be matched to a public record. Page numbers are not available "
-        "in this corpus, so results cannot be cited by page."
+        "in this corpus, so results cannot be cited by page. Entries also "
+        "carry bases (what the numbers measure: sales, installed_annual, "
+        "installed_cumulative or production, each with its evidence; empty "
+        "when the text did not disambiguate), is_projection for "
+        "forward-looking figures, and is_truncated for passages the upstream "
+        "chunker cut mid-content."
     )
 
     def run(
