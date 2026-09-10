@@ -26,9 +26,13 @@ class MetricTimelineTool(BaseTool):
         "no deduplication or reconciliation performed across sources, so "
         "different passages for the same year may report differing "
         "figures. The caller is expected to read the actual figures out of "
-        "each passage's text and, if useful, chart or summarize them. Page "
-        "numbers are not available in this corpus, so results cannot be "
-        "cited by page; cite by document title and download URL instead."
+        "each passage's text and, if useful, chart or summarize them. Every "
+        "entry carries full source attribution, including the document's "
+        "publication date (published_at) and a public download_url pointing "
+        "directly at the original PDF, which anyone can open without "
+        "credentials; download_url is null for the few documents that could "
+        "not be matched to a public record. Page numbers are not available "
+        "in this corpus, so results cannot be cited by page."
     )
 
     def run(

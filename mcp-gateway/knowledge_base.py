@@ -14,6 +14,7 @@ import time
 import requests
 
 from config import Config
+from public_source import PublicSourceResolver, parse_document_name
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
 RETRIEVE_TOOL_NAME = "bfe-public-knowledge___Retrieve"
@@ -30,10 +31,11 @@ class KnowledgeBaseError(Exception):
 class KnowledgeBaseClient:
     """Queries the Swiss federal energy publications knowledge base."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, public_sources: PublicSourceResolver | None = None):
         self._config = config
         self._token_lock = threading.Lock()
         self._token_cache = {"access_token": None, "expires_at": 0.0}
+        self._public_sources = public_sources or PublicSourceResolver()
 
     def search(self, query: str, max_results: int) -> list[dict]:
         """Run a semantic search and return a score-sorted, ranked list of
@@ -115,18 +117,19 @@ class KnowledgeBaseClient:
         cleaned = []
         for item in retrieval_results:
             metadata = item.get("metadata", {})
+            title = metadata.get("_document_title")
+            published_at, _ = parse_document_name(title)
             cleaned.append(
                 {
                     "score": item.get("score"),
                     "text": item.get("content", {}).get("text", ""),
                     "source": {
-                        "title": metadata.get("_document_title"),
-                        "s3_uri": item.get("documentId"),
-                        "download_url": item.get("location", {})
-                        .get("s3Location", {})
-                        .get("uri"),
+                        "title": title,
+                        "published_at": published_at,
+                        "download_url": None,
                         "file_type": metadata.get("_file_type"),
                         "language": metadata.get("_language_code"),
+                        "media_type": metadata.get("_media_type"),
                         "created_at": metadata.get("_created_at"),
                         "last_updated_at": metadata.get("_last_updated_at"),
                     },
@@ -136,7 +139,21 @@ class KnowledgeBaseClient:
         cleaned.sort(key=lambda item: item["score"] or 0, reverse=True)
         cleaned = cleaned[:max_results]
 
+        self._attach_download_urls(cleaned)
+
         for rank, item in enumerate(cleaned, start=1):
             item["rank"] = rank
 
         return cleaned
+
+    def _attach_download_urls(self, results: list[dict]) -> None:
+        """Fill in each source's public download URL, in place.
+
+        Only the results actually being returned are resolved, and the
+        resolver caches across calls, so a repeated document costs nothing.
+        Documents that cannot be matched confidently keep a `None` URL.
+        """
+        titles = [item["source"]["title"] for item in results]
+        resolved = self._public_sources.resolve_many(titles)
+        for item in results:
+            item["source"]["download_url"] = resolved.get(item["source"]["title"])
