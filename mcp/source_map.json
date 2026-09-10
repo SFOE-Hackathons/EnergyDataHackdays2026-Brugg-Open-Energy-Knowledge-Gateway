@@ -1,0 +1,29 @@
+{
+  "2020-01-31_modellierung-der-erzeugungs-und-systemkapazitat-(system-adequacy)-in-der-schweiz-im-bereich-strom-20.pdf": {
+    "pdf_url": "https://pubdb.bfe.admin.ch/de/publication/download/10020",
+    "pubdb_id": 10020,
+    "candidate_filename": "10020-SACH2019_final_for_publication_31012020.pdf",
+    "match": "best-of-candidates",
+    "candidate_count": 16,
+    "score": 0.75,
+    "verified_at": "2026-09-10T16:11:53.958909+00:00"
+  },
+  "2020-01-31_modellierung-der-erzeugungs-und-systemkapazitat-(system-adequacy)-in-der-schweiz-im-bereich-strom-2019.pdf": {
+    "pdf_url": "https://pubdb.bfe.admin.ch/de/publication/download/10020",
+    "pubdb_id": 10020,
+    "candidate_filename": "10020-SACH2019_final_for_publication_31012020.pdf",
+    "match": "best-of-candidates",
+    "candidate_count": 16,
+    "score": 0.8125,
+    "verified_at": "2026-09-10T16:12:12.080837+00:00"
+  },
+  "2022-03-10_die-neue-rolle-der-wasserkraft.pdf": {
+    "pdf_url": "https://pubdb.bfe.admin.ch/de/publication/download/10822",
+    "pubdb_id": 10822,
+    "candidate_filename": "10822-WASSERKRAFT_Wasserkraft als Enabler_2022.03.10_BFE_Vogel_D.pdf",
+    "match": "date+filename",
+    "candidate_count": 1,
+    "score": 1.0,
+    "verified_at": "2026-09-10T16:12:13.999967+00:00"
+  }
+}

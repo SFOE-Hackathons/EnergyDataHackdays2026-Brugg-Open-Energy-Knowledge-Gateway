@@ -4,11 +4,15 @@
 from __future__ import annotations
 
 import json
+import html
 import os
+from pathlib import Path
+import shutil
 import subprocess
 import sys
 import time
 import urllib.parse
+import webbrowser
 from typing import Any
 
 
@@ -16,8 +20,8 @@ from typing import Any
 # credentials are committed to this public repository. See mcp/README.md.
 CLIENT_ID = os.environ.get("BFE_MCP_CLIENT_ID", "")
 TOKEN_URL = os.environ.get("BFE_MCP_TOKEN_URL", "")
-KEYCHAIN_SERVICE = os.environ.get(
-    "BFE_MCP_KEYCHAIN_SERVICE", "codex-mcp-bfe-public-knowledge"
+CLIENT_SECRET = os.environ.get(
+    "BFE_MCP_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
 )
 # The Gateway URL is published in this repository's readme, so it is safe as a
 # default while still being overridable for other deployments.
@@ -28,15 +32,30 @@ GATEWAY_URL = os.environ.get(
 )
 GATEWAY_PROTOCOL_VERSION = "2026-07-28"
 TOOL_NAME = "bfe-public-knowledge___Retrieve"
+SOURCE_MAP_PATH = Path(__file__).with_name("source_map.json")
 TOKEN_EXPIRY_MARGIN_SEC = 60.0
 TOKEN_DEFAULT_TTL_SEC = 3600.0
 
 _token_cache: tuple[str, float] | None = None
 
 
+def load_source_map() -> dict[str, dict[str, Any]]:
+    try:
+        value = json.loads(SOURCE_MAP_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+SOURCE_MAP = load_source_map()
+
+
 def run_curl(args: list[str], *, body: str) -> dict[str, Any]:
+    curl = shutil.which("curl") or shutil.which("curl.exe")
+    if curl is None:
+        raise RuntimeError("curl.exe was not found on PATH")
     result = subprocess.run(
-        ["/usr/bin/curl", "--silent", "--show-error", "--fail", *args],
+        [curl, "--silent", "--show-error", "--fail", *args],
         input=body,
         check=True,
         capture_output=True,
@@ -47,23 +66,11 @@ def run_curl(args: list[str], *, body: str) -> dict[str, Any]:
 
 
 def read_client_secret() -> str:
-    result = subprocess.run(
-        [
-            "/usr/bin/security",
-            "find-generic-password",
-            "-w",
-            "-a",
-            CLIENT_ID,
-            "-s",
-            KEYCHAIN_SERVICE,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    secret = result.stdout.rstrip("\n")
+    secret = CLIENT_SECRET.strip()
     if not secret:
-        raise RuntimeError("Cognito client secret is empty in macOS Keychain")
+        raise RuntimeError(
+            "Missing BFE_MCP_CLIENT_SECRET or CLIENT_SECRET environment variable"
+        )
     return secret
 
 
@@ -191,6 +198,83 @@ def call_gateway(question: str, request_id: Any) -> dict[str, Any]:
     return result
 
 
+def source_key(document_id: Any) -> str | None:
+    if not isinstance(document_id, str):
+        return None
+    return document_id.removeprefix("s3://sandbox-bfe-public-data-pdf/").split("?")[0]
+
+
+def rewrite_sources(result: dict[str, Any]) -> dict[str, Any]:
+    """Replace S3 citations only when an exact verified PDF mapping exists."""
+    try:
+        rewritten = json.loads(json.dumps(result))
+        for item in rewritten.get("content", []):
+            if item.get("type") != "text" or not isinstance(item.get("text"), str):
+                continue
+            payload = json.loads(item["text"])
+            retrieval_results = payload.get("retrievalResults")
+            if not isinstance(retrieval_results, list):
+                continue
+            for retrieval in retrieval_results:
+                if not isinstance(retrieval, dict):
+                    continue
+                metadata = retrieval.setdefault("metadata", {})
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                    retrieval["metadata"] = metadata
+                key = source_key(retrieval.get("documentId"))
+                mapped = SOURCE_MAP.get(key or "")
+                pdf_url = mapped.get("pdf_url") if isinstance(mapped, dict) else None
+                if not isinstance(pdf_url, str) or not pdf_url:
+                    metadata["source_confidence"] = "unresolved"
+                    metadata["source_url"] = None
+                    continue
+                confidence = "verified"
+                location = retrieval.setdefault("location", {})
+                s3_location = location.setdefault("s3Location", {})
+                s3_location["uri"] = pdf_url
+                metadata["_source_uri"] = pdf_url
+                metadata["source_url"] = pdf_url
+                metadata["source_confidence"] = confidence
+                if confidence == "verified":
+                    metadata["pubdb_id"] = mapped.get("pubdb_id")
+                item["text"] = json.dumps(payload, ensure_ascii=False)
+        return rewritten
+    except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+        return result
+
+
+def write_browser_result(question: str, gateway_result: dict[str, Any]) -> None:
+    display_result: Any = gateway_result
+    try:
+        nested_text = gateway_result["content"][0]["text"]
+        display_result = json.loads(nested_text)
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        pass
+
+    output_path = Path(__file__).resolve().parent.parent / "gateway_results.html"
+    formatted_result = json.dumps(display_result, indent=2, ensure_ascii=False)
+    page = (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Energy Gateway Results</title>"
+        "<style>body{font-family:system-ui,sans-serif;max-width:1100px;"
+        "margin:2rem auto;padding:0 1rem;background:#f4f6f8;color:#17202a}"
+        "h1{font-size:1.5rem}p{background:white;padding:1rem;"
+        "border-left:4px solid #1677ff}pre{white-space:pre-wrap;"
+        "background:white;padding:1.5rem;border:1px solid #d8dee4;"
+        "border-radius:8px;line-height:1.5;overflow:auto}</style>"
+        "</head><body><h1>Energy Gateway Results</h1><p><strong>Question:</strong> "
+        + html.escape(question)
+        + "</p><pre>"
+        + html.escape(formatted_result)
+        + "</pre></body></html>"
+    )
+    output_path.write_text(page, encoding="utf-8")
+    if os.environ.get("BFE_MCP_OPEN_BROWSER") == "1":
+        webbrowser.open(output_path.as_uri())
+
+
 def send(message: dict[str, Any]) -> None:
     print(json.dumps(message, ensure_ascii=False, separators=(",", ":")), flush=True)
 
@@ -288,7 +372,9 @@ def handle(message: dict[str, Any]) -> None:
         if not isinstance(question, str) or not question.strip():
             error(request_id, -32602, "retrievalQuery.text must be a non-empty string")
             return
-        result(request_id, call_gateway(question.strip(), request_id))
+        gateway_result = rewrite_sources(call_gateway(question.strip(), request_id))
+        write_browser_result(question.strip(), gateway_result)
+        result(request_id, gateway_result)
         return
 
     if method in {"resources/list", "resources/templates/list"}:
