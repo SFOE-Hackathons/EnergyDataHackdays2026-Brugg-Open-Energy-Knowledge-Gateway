@@ -677,259 +677,368 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 4: pubdb catalogue scanner
+### Task 4: Key corpus from the Gateway
+
+**Revision note (2026-09-10).** The original Task 4 built a pubdb catalogue scanner.
+It is **cancelled**: teammate dariazorina already scanned pubdb and pushed
+`mcp/pubdb_index.json` with 7132 entries (commit `3e5d02b`). Rescanning would
+duplicate ~20 minutes of crawling for no gain. Task 4 is re-scoped to the thing
+that is actually missing — the list of S3 object keys to resolve.
+
+We cannot list the bucket: it returns `403 AccessDenied` on both GET and listing,
+and no AWS credentials are configured on the host. The only available source of
+object keys is the Gateway itself, whose retrieval results carry `documentId`
+values of the form `s3://sandbox-bfe-public-data-pdf/<key>`. Harvesting many
+varied queries yields a growing corpus. Measured rate: 11 queries produced 40
+distinct documents.
 
 **Files:**
-- Create: `mcp/pubdb_index.py`
-- Create (generated, committed): `mcp/pubdb_index.json`
+- Create: `mcp/harvest_keys.py`
+- Create (generated, committed): `mcp/keys.txt`
 
 **Interfaces:**
-- Consumes: nothing from earlier tasks.
+- Consumes: nothing from earlier tasks. Talks to `mcp/bfe_mcp_proxy.py` as a subprocess.
 - Produces:
-  - `BASE_URL: str` — `"https://pubdb.bfe.admin.ch/de/publication/download/"`
-  - `USER_AGENT: str`
-  - `parse_filename(disposition: str) -> str`
-  - `head_publication(pubdb_id: int, timeout: float = 20.0) -> dict | None`
-  - `scan(start: int, stop: int, existing: dict[str, dict], workers: int, delay: float) -> dict[str, dict]`
-  - `mcp/pubdb_index.json`, mapping the id as a string to
-    `{"filename": str, "content_type": str, "last_modified": str, "size": int | None}`
+  - `QUERIES: tuple[str, ...]`
+  - `harvest(queries: Sequence[str], timeout: float = 900.0) -> set[str]`
+  - `mcp/keys.txt` — one S3 object key per line, sorted, unique
 
-- [ ] **Step 1: Write the scanner**
+- [ ] **Step 1: Write the harvester**
 
-Create `mcp/pubdb_index.py`:
+Create `mcp/harvest_keys.py`:
 
 ```python
 #!/usr/bin/env python3
-"""Build a catalogue of pubdb.bfe.admin.ch publications from HEAD responses.
+"""Harvest S3 object keys from Gateway retrieval results.
 
-pubdb exposes no search and no API, only /de/publication/download/<id>.
-A HEAD on that URL returns the original filename and modification date,
-which is enough to build a full catalogue without downloading any bodies.
+The document bucket is private and cannot be listed, so the only way to learn
+which objects exist is to ask the Knowledge Base and read the documentId of
+every chunk it returns. Coverage grows with the breadth of the query set.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+import os
+import subprocess
+import sys
+from collections.abc import Sequence
 from pathlib import Path
 
-BASE_URL = "https://pubdb.bfe.admin.ch/de/publication/download/"
-# pubdb answers 404 to default Python agents.
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/140.0 Safari/537.36"
+ADAPTER = Path(__file__).with_name("bfe_mcp_proxy.py")
+DEFAULT_KEYS_PATH = Path(__file__).with_name("keys.txt")
+BUCKET_PREFIX = "s3://sandbox-bfe-public-data-pdf/"
+
+QUERIES: tuple[str, ...] = (
+    "Wasserkraft Schweiz Stromversorgung",
+    "Photovoltaik Einmalvergütung Förderung",
+    "Windenergie Ausbau Bewilligung",
+    "Energiestrategie 2050 Ziele",
+    "Geothermie Projekte Schweiz",
+    "Wasserstoff Mobilität Energiepolitik",
+    "Kernenergie Rückbau Entsorgung",
+    "Gebäudeprogramm energetische Sanierung",
+    "Stromnetz Ausbau Netzentgelte",
+    "Energieforschung Innovation Bericht",
+    "Biomasse Biogas Holzenergie",
+    "Elektromobilität Ladeinfrastruktur",
+    "Fernwärme Wärmenetze Planung",
+    "Energieeffizienz Geräte Vorschriften",
+    "Speicher Batterien Netzstabilität",
+    "Solarenergie Alpine Anlagen",
+    "Versorgungssicherheit Winter Strommangellage",
+    "CO2 Emissionen Klimaziele Energie",
+    "Wärmepumpen Marktentwicklung",
+    "Smart Meter Digitalisierung Energie",
+    "efficacité énergétique des bâtiments",
+    "énergies renouvelables objectifs suisses",
+    "hydraulique force production électricité",
+    "energy research programme Switzerland",
+    "renewable electricity targets Switzerland",
+    "efficienza energetica edifici Svizzera",
 )
-DEFAULT_INDEX_PATH = Path(__file__).with_name("pubdb_index.json")
-
-_FILENAME_STAR_RE = re.compile(r"filename\*\s*=\s*utf-8''(?P<value>[^;]+)", re.I)
-_FILENAME_RE = re.compile(r'filename\s*=\s*"?(?P<value>[^";]+)"?', re.I)
 
 
-def parse_filename(disposition: str) -> str:
-    """Read the filename out of a Content-Disposition header.
-
-    The RFC 5987 ``filename*`` form is preferred because it carries the
-    umlauts intact; the plain ``filename`` has them mangled.
-    """
-    starred = _FILENAME_STAR_RE.search(disposition)
-    if starred:
-        return urllib.parse.unquote(starred["value"].strip())
-    plain = _FILENAME_RE.search(disposition)
-    return plain["value"].strip() if plain else ""
-
-
-def head_publication(pubdb_id: int, timeout: float = 20.0) -> dict | None:
-    """HEAD one publication. Returns None when the id does not exist."""
-    request = urllib.request.Request(
-        f"{BASE_URL}{pubdb_id}", method="HEAD", headers={"User-Agent": USER_AGENT}
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            headers = response.headers
-            size = headers.get("Content-Length")
-            return {
-                "filename": parse_filename(headers.get("Content-Disposition", "")),
-                "content_type": headers.get("Content-Type", ""),
-                "last_modified": headers.get("Last-Modified", ""),
-                "size": int(size) if size and size.isdigit() else None,
+def harvest(queries: Sequence[str], timeout: float = 900.0) -> set[str]:
+    """Run every query through the adapter and collect distinct object keys."""
+    requests = "\n".join(
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": position,
+                "method": "tools/call",
+                "params": {
+                    "name": "bfe-public-knowledge___Retrieve",
+                    "arguments": {"retrievalQuery": {"text": query}},
+                },
             }
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError):
-        return None
+        )
+        for position, query in enumerate(queries, start=1)
+    )
 
+    completed = subprocess.run(
+        [sys.executable, str(ADAPTER)],
+        input=requests + "\n",
+        capture_output=True,
+        text=True,
+        env=os.environ,
+        timeout=timeout,
+    )
 
-def scan(
-    start: int,
-    stop: int,
-    existing: dict[str, dict],
-    workers: int = 8,
-    delay: float = 0.05,
-) -> dict[str, dict]:
-    """Scan a half-open id range, skipping ids already in ``existing``.
-
-    Idempotent: rerunning fills the gaps rather than refetching everything.
-    """
-    index = dict(existing)
-    todo = [i for i in range(start, stop) if str(i) not in index]
-
-    def fetch(pubdb_id: int) -> tuple[int, dict | None]:
-        time.sleep(delay)
-        return pubdb_id, head_publication(pubdb_id)
-
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        for done, (pubdb_id, entry) in enumerate(pool.map(fetch, todo), start=1):
-            if entry is not None:
-                index[str(pubdb_id)] = entry
-            if done % 500 == 0:
-                print(f"  {done}/{len(todo)} probed, {len(index)} found", flush=True)
-
-    return index
+    keys: set[str] = set()
+    for line in completed.stdout.splitlines():
+        try:
+            message = json.loads(line)
+        except ValueError:
+            continue
+        for item in (message.get("result") or {}).get("content", []):
+            try:
+                payload = json.loads(item.get("text", ""))
+            except ValueError:
+                continue
+            for entry in payload.get("retrievalResults", []):
+                document_id = entry.get("documentId", "")
+                if document_id.startswith(BUCKET_PREFIX):
+                    keys.add(document_id[len(BUCKET_PREFIX) :])
+    return keys
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--start", type=int, default=1000)
-    parser.add_argument("--stop", type=int, default=13000)
-    parser.add_argument("--workers", type=int, default=8)
-    parser.add_argument("--delay", type=float, default=0.05)
-    parser.add_argument("--out", type=Path, default=DEFAULT_INDEX_PATH)
+    parser.add_argument("--out", type=Path, default=DEFAULT_KEYS_PATH)
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        help="Add to the existing keys file instead of replacing it.",
+    )
     args = parser.parse_args()
 
-    existing: dict[str, dict] = {}
-    if args.out.exists():
-        with args.out.open(encoding="utf-8") as handle:
-            existing = json.load(handle)
-        print(f"resuming from {len(existing)} known publications")
+    keys = harvest(QUERIES)
+    if args.merge and args.out.exists():
+        previous = {
+            line.strip()
+            for line in args.out.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        }
+        print(f"merging with {len(previous)} existing keys")
+        keys |= previous
 
-    index = scan(args.start, args.stop, existing, args.workers, args.delay)
-
-    with args.out.open("w", encoding="utf-8") as handle:
-        json.dump(index, handle, ensure_ascii=False, indent=1, sort_keys=True)
-    print(f"wrote {len(index)} publications to {args.out}")
+    args.out.write_text("\n".join(sorted(keys)) + "\n", encoding="utf-8")
+    print(f"wrote {len(keys)} keys to {args.out}")
 
 
 if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Verify the filename parser against the two real header forms**
+- [ ] **Step 2: Run the harvest**
+
+The adapter needs credentials. Load them from the local MCP config rather than
+typing them out, and never commit them:
 
 ```bash
-cd mcp && python3 -c "
-from pubdb_index import parse_filename
-starred = 'attachment; filename=\"7238-20251126_Faktenblatt F_rderung_PV_DE.pdf\"; filename*=utf-8\'\'7238-20251126_Faktenblatt%20F%C3%B6rderung_PV_DE.pdf'
-plain = 'attachment; filename=\"10000-2020 Leistungsvereinbarung BFE.pdf\"'
-assert parse_filename(starred) == '7238-20251126_Faktenblatt Förderung_PV_DE.pdf', parse_filename(starred)
-assert parse_filename(plain) == '10000-2020 Leistungsvereinbarung BFE.pdf', parse_filename(plain)
-print('both header forms parse correctly')
+cd mcp && export BFE_MCP_CLIENT_ID=$(python3 -c "import json;print(json.load(open('/Users/vlak/OEKG/.mcp.json'))['mcpServers']['bfe-public-knowledge']['env']['BFE_MCP_CLIENT_ID'])") && export BFE_MCP_TOKEN_URL=$(python3 -c "import json;print(json.load(open('/Users/vlak/OEKG/.mcp.json'))['mcpServers']['bfe-public-knowledge']['env']['BFE_MCP_TOKEN_URL'])") && python3 harvest_keys.py
+```
+
+Expected: `wrote N keys to .../keys.txt` with N of at least 80. The 26 queries
+above are broader than the 11-query probe that produced 40 keys.
+
+- [ ] **Step 3: Sanity-check the corpus**
+
+```bash
+cd mcp && wc -l keys.txt && head -3 keys.txt && python3 -c "
+keys = [k.strip() for k in open('keys.txt') if k.strip()]
+dated = sum(1 for k in keys if len(k) > 10 and k[4] == '-' and k[7] == '-' and k[10] == '_')
+print('keys:', len(keys)); print('with YYYY-MM-DD_ prefix:', dated)
 "
 ```
 
-Expected: `both header forms parse correctly`
+Expected: every key ending in `.pdf`, and nearly all carrying the `YYYY-MM-DD_` prefix.
+That prefix is what the matcher joins on, so a low count here would undermine Task 5.
 
-- [ ] **Step 3: Smoke-test the scanner on a tiny range**
+- [ ] **Step 4: Lint and format**
 
-```bash
-cd mcp && python3 pubdb_index.py --start 7230 --stop 7245 --out /tmp/probe.json && python3 -c "
-import json; d = json.load(open('/tmp/probe.json'))
-print('found', len(d), 'of 15')
-print('7238:', d.get('7238'))
-"
-```
-
-Expected: several entries found, and `7238` showing `filename` `7238-20251126_Faktenblatt Förderung_PV_DE.pdf` with `content_type` `application/pdf`.
-
-- [ ] **Step 4: Run the full scan**
-
-This takes roughly 15-25 minutes at the default rate. It is resumable: if it is interrupted, rerun the same command.
-
-```bash
-cd mcp && python3 pubdb_index.py
-```
-
-Expected: progress lines every 500 ids, ending with `wrote N publications to .../pubdb_index.json` where N is in the low thousands.
-
-- [ ] **Step 5: Sanity-check the catalogue**
-
-```bash
-cd mcp && python3 -c "
-import json, collections
-d = json.load(open('pubdb_index.json'))
-types = collections.Counter(v['content_type'].split(';')[0] for v in d.values())
-dated = sum(1 for v in d.values() if any(c.isdigit() for c in v['filename']))
-print('entries:', len(d)); print('types:', types.most_common(5))
-print('filenames containing digits:', dated)
-print('missing filename:', sum(1 for v in d.values() if not v['filename']))
-"
-```
-
-Expected: a few thousand entries, `application/pdf` dominant, and very few entries with a missing filename.
-
-- [ ] **Step 6: Lint and format**
-
-Run: `ruff format mcp/pubdb_index.py && ruff check mcp/pubdb_index.py`
+Run: `ruff format mcp/harvest_keys.py && ruff check mcp/harvest_keys.py`
 Expected: `All checks passed!`
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add mcp/pubdb_index.py mcp/pubdb_index.json
-git commit -m "Add pubdb catalogue scanner and its generated index
+git add mcp/harvest_keys.py mcp/keys.txt
+git commit -m "Harvest S3 object keys from Gateway retrieval results
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 5: Build the source map
+### Task 5: Rewrite the matcher
+
+**Revision note (2026-09-10).** `mcp/build_source_map.py` already exists from commit
+`3e5d02b`. This task **replaces its contents**. The existing version resolved 3 of 3
+keys, but its key list held only 3 entries, so that rate is not evidence of anything.
 
 **Files:**
-- Create: `mcp/build_source_map.py`
-- Create (input, committed): `mcp/keys.txt`
+- Rewrite: `mcp/build_source_map.py`
+- Create: `mcp/test_source_map_build.py`
 - Create (generated, committed): `mcp/source_map.json`
 
 **Interfaces:**
-- Consumes: `parse_s3_key`, `deslugify`, `coverage` from `source_match` (Task 1); `USER_AGENT` from `pubdb_index` (Task 4); `pubdb_index.json` (Task 4).
-- Produces: `mcp/source_map.json` in exactly the shape Task 2 consumes.
+- Consumes: `parse_s3_key`, `deslugify`, `coverage` from `source_match` (Task 1);
+  `mcp/pubdb_index.json` (from dariazorina's commit `3e5d02b`); `mcp/keys.txt` (Task 4).
+- Produces: `mcp/source_map.json`, whose entries MUST contain `pdf_url` and `pubdb_id`
+  because `source_links.py` (Task 2) reads exactly those two fields.
 
-- [ ] **Step 1: Produce the list of bucket keys**
+**Four properties of the existing index that the matcher must respect.** Getting any
+of these wrong silently produces garbage:
 
-Two routes; either produces one key per line.
+1. `pubdb_index.py` defines `BASE_URL = "https://pubdb.bfe.admin.ch/de/publication/download/{}"`
+   — a **format template**, not a prefix. `f"{BASE_URL}{pubdb_id}"` yields
+   `.../download/{}7238`. Always use `.format(pubdb_id)`.
+2. Index filenames **lost their umlauts**: entry `7238` reads
+   `7238-20251126_Faktenblatt F_rderung_PV_DE.pdf`, with `ö` replaced by `_`, because
+   the scanner read the plain `filename` parameter rather than `filename*=utf-8''`.
+   So `F_rderung` tokenises to `f` and `rderung` and will never match `forderung`.
+   Filename similarity is therefore weak evidence; the date and the PDF content carry
+   the match.
+3. Every entry has `"size": 0` — the scanner did not record `Content-Length`. Do not
+   use size for anything.
+4. `last_modified` is an RFC 7231 string such as `"Thu, 27 Nov 2025 16:01:38 GMT"`.
+   Parse it with `email.utils.parsedate_to_datetime`, not `strptime` with `%Z`.
 
-With AWS credentials for the sandbox account:
+**Dates in pubdb filenames use several layouts.** All three of these are real entries:
 
-```bash
-aws s3 ls s3://sandbox-bfe-public-data-pdf --recursive | awk '{ $1=$2=$3=""; sub(/^ +/, ""); print }' > mcp/keys.txt
+| Filename fragment | Layout |
+|---|---|
+| `7238-20251126_Faktenblatt…` | `YYYYMMDD` |
+| `10020-SACH2019_final_for_publication_31012020.pdf` | `DDMMYYYY` |
+| `10822-WASSERKRAFT_…_2022.03.10_BFE_Vogel_D.pdf` | `YYYY.MM.DD` |
+
+A matcher that only understands `YYYYMMDD` misses the majority. Extract every
+plausible date and treat the entry as a candidate if any of them matches.
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `mcp/test_source_map_build.py`:
+
+```python
+"""Unit tests for the pure parts of the matcher. No network access."""
+
+from __future__ import annotations
+
+from datetime import date
+
+from build_source_map import (
+    candidates_by_date,
+    candidates_by_mtime,
+    entry_dates,
+    is_pdf,
+    parse_last_modified,
+    pubdb_url,
+)
+
+INDEX = {
+    "7238": {
+        "filename": "7238-20251126_Faktenblatt F_rderung_PV_DE.pdf",
+        "content_type": "application/pdf",
+        "last_modified": "Thu, 27 Nov 2025 16:01:38 GMT",
+        "size": 0,
+    },
+    "10000": {
+        "filename": "10000-2020 Leistungsvereinbarung BFE.pdf",
+        "content_type": "application/pdf",
+        "last_modified": "Tue, 14 Jan 2020 13:01:06 GMT",
+        "size": 0,
+    },
+    "10020": {
+        "filename": "10020-SACH2019_final_for_publication_31012020.pdf",
+        "content_type": "application/pdf",
+        "last_modified": "Fri, 31 Jan 2020 09:00:00 GMT",
+        "size": 0,
+    },
+    "12500": {
+        "filename": "12500-Vorlage.docx",
+        "content_type": (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        "last_modified": "Fri, 11 Apr 2025 08:11:51 GMT",
+        "size": 0,
+    },
+}
+
+
+def test_pubdb_url_fills_the_template() -> None:
+    assert pubdb_url(7238) == "https://pubdb.bfe.admin.ch/de/publication/download/7238"
+
+
+def test_entry_dates_reads_yyyymmdd() -> None:
+    assert date(2025, 11, 26) in entry_dates(INDEX["7238"]["filename"])
+
+
+def test_entry_dates_reads_ddmmyyyy() -> None:
+    assert date(2020, 1, 31) in entry_dates(INDEX["10020"]["filename"])
+
+
+def test_entry_dates_reads_dotted_iso() -> None:
+    assert date(2022, 3, 10) in entry_dates(
+        "10822-WASSERKRAFT_Wasserkraft als Enabler_2022.03.10_BFE_Vogel_D.pdf"
+    )
+
+
+def test_entry_dates_ignores_a_bare_year() -> None:
+    assert entry_dates(INDEX["10000"]["filename"]) == set()
+
+
+def test_entry_dates_rejects_impossible_dates() -> None:
+    assert entry_dates("9999-20251340_report.pdf") == set()
+
+
+def test_parse_last_modified_reads_rfc7231() -> None:
+    assert parse_last_modified("Thu, 27 Nov 2025 16:01:38 GMT") == date(2025, 11, 27)
+
+
+def test_parse_last_modified_of_garbage_is_none() -> None:
+    assert parse_last_modified("not a date") is None
+
+
+def test_is_pdf_rejects_word_documents() -> None:
+    assert is_pdf(INDEX["7238"]) is True
+    assert is_pdf(INDEX["12500"]) is False
+
+
+def test_candidates_by_date_matches_on_filename_date() -> None:
+    assert candidates_by_date(INDEX, date(2025, 11, 26)) == [7238]
+
+
+def test_candidates_by_date_returns_empty_when_nothing_matches() -> None:
+    assert candidates_by_date(INDEX, date(1999, 1, 1)) == []
+
+
+def test_candidates_by_mtime_uses_the_window() -> None:
+    found = candidates_by_mtime(INDEX, date(2020, 1, 20), 14)
+    assert 10000 in found
+    assert 7238 not in found
 ```
 
-Without credentials, from the console: **S3 ▸ sandbox-bfe-public-data-pdf ▸ Objects**, choose **Actions ▸ Create CSV inventory** or use the object listing's CSV download, then extract the key column into `mcp/keys.txt`.
+- [ ] **Step 2: Run the tests to verify they fail**
 
-Verify the shape:
+Run: `cd mcp && python3 -m pytest test_source_map_build.py -v`
+Expected: FAIL — the current `build_source_map.py` defines none of these names,
+so collection fails with `ImportError`.
 
-```bash
-wc -l mcp/keys.txt && head -3 mcp/keys.txt
-```
+- [ ] **Step 3: Rewrite the matcher**
 
-Expected: a few thousand lines, each looking like `2025-11-26_forderung-von-....pdf`.
-
-- [ ] **Step 2: Write the matcher**
-
-Create `mcp/build_source_map.py`:
+Replace the entire contents of `mcp/build_source_map.py` with:
 
 ```python
 #!/usr/bin/env python3
 """Join S3 object keys to pubdb publications and emit source_map.json.
 
-The join key is the publication date, which appears both as the S3 key's
-prefix and inside the pubdb filename. Where a date yields several
-candidates, the choice is made on the PDF's own content: filenames alone
-are too weak, because the S3 slug comes from the document title while the
-pubdb name is internal.
+The join key is the publication date, which appears both as the S3 key's prefix
+and inside the pubdb filename. Where a date yields several candidates the choice
+is made on the PDF's own content: the index filenames lost their umlauts to
+underscores, so filename similarity alone is far too weak to decide.
 """
 
 from __future__ import annotations
@@ -937,45 +1046,77 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import re
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timedelta
 from collections.abc import Iterator
+from datetime import date, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader
 
-from pubdb_index import BASE_URL, USER_AGENT
 from source_match import S3Key, coverage, deslugify, parse_s3_key
 
+DOWNLOAD_URL = "https://pubdb.bfe.admin.ch/de/publication/download/{}"
+USER_AGENT = "Open-Energy-Knowledge-Gateway/1.0 source-map-builder"
 DEFAULT_INDEX_PATH = Path(__file__).with_name("pubdb_index.json")
 DEFAULT_KEYS_PATH = Path(__file__).with_name("keys.txt")
 DEFAULT_MAP_PATH = Path(__file__).with_name("source_map.json")
 CONTENT_THRESHOLD = 0.5
 MTIME_WINDOWS_DAYS = (14, 90)
 
+# pubdb filenames carry dates in several layouts; all of these occur.
+_DATE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)"), "ymd"),
+    (re.compile(r"(?<!\d)(\d{2})(\d{2})(20\d{2})(?!\d)"), "dmy"),
+    (re.compile(r"(?<!\d)(20\d{2})[.\-_](\d{2})[.\-_](\d{2})(?!\d)"), "ymd"),
+    (re.compile(r"(?<!\d)(\d{2})[.\-_](\d{2})[.\-_](20\d{2})(?!\d)"), "dmy"),
+)
 
-def pubdb_url(pubdb_id: int) -> str:
-    return f"{BASE_URL}{pubdb_id}"
+
+def pubdb_url(pubdb_id: int | str) -> str:
+    """Build a download URL. BASE is a template, so .format is mandatory."""
+    return DOWNLOAD_URL.format(pubdb_id)
+
+
+def entry_dates(filename: str) -> set[date]:
+    """Every plausible date in a pubdb filename, across all known layouts."""
+    found: set[date] = set()
+    for pattern, order in _DATE_PATTERNS:
+        for match in pattern.finditer(filename):
+            first, second, third = match.groups()
+            if order == "ymd":
+                year, month, day = first, second, third
+            else:
+                day, month, year = first, second, third
+            try:
+                found.add(date(int(year), int(month), int(day)))
+            except ValueError:
+                continue
+    return found
 
 
 def parse_last_modified(value: str) -> date | None:
     """Parse an RFC 7231 Last-Modified value into a date."""
     try:
-        return datetime.strptime(value, "%a, %d %b %Y %H:%M:%S %Z").date()
-    except ValueError:
+        return parsedate_to_datetime(value).date()
+    except (TypeError, ValueError):
         return None
 
 
+def is_pdf(entry: dict[str, Any]) -> bool:
+    return str(entry.get("content_type", "")).startswith("application/pdf")
+
+
 def candidates_by_date(index: dict[str, dict], wanted: date) -> list[int]:
-    """Publications whose filename embeds the wanted date as YYYYMMDD."""
-    stamp = wanted.strftime("%Y%m%d")
-    return [
+    """Publications whose filename carries the wanted date in any layout."""
+    return sorted(
         int(pubdb_id)
         for pubdb_id, entry in index.items()
-        if stamp in entry.get("filename", "")
-    ]
+        if wanted in entry_dates(str(entry.get("filename", "")))
+    )
 
 
 def candidates_by_mtime(
@@ -985,14 +1126,10 @@ def candidates_by_mtime(
     span = timedelta(days=window_days)
     found = []
     for pubdb_id, entry in index.items():
-        modified = parse_last_modified(entry.get("last_modified", ""))
+        modified = parse_last_modified(str(entry.get("last_modified", "")))
         if modified is not None and abs(modified - wanted) <= span:
             found.append(int(pubdb_id))
-    return found
-
-
-def is_pdf(entry: dict) -> bool:
-    return entry.get("content_type", "").startswith("application/pdf")
+    return sorted(found)
 
 
 def fetch_pdf_text(pubdb_id: int, timeout: float = 60.0) -> str:
@@ -1055,6 +1192,7 @@ def resolve(parsed: S3Key, index: dict[str, dict]) -> dict[str, Any] | None:
                 "pubdb_id": best_id,
                 "match": f"{source}+content",
                 "score": round(best_score, 3),
+                "candidate_count": len(ids),
             }
 
     return None
@@ -1065,12 +1203,13 @@ def build(keys: list[str], index: dict[str, dict]) -> dict[str, dict]:
     for position, key in enumerate(keys, start=1):
         outcome = resolve(parse_s3_key(key), index)
         if outcome and verify(outcome["pubdb_id"]):
-            now = datetime.now().astimezone().isoformat(timespec="seconds")
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
             resolved[key] = {
                 "pdf_url": pubdb_url(outcome["pubdb_id"]),
                 "pubdb_id": outcome["pubdb_id"],
                 "match": outcome["match"],
                 "score": outcome["score"],
+                "candidate_count": outcome.get("candidate_count", 1),
                 "verified_at": now,
             }
         print(
@@ -1118,7 +1257,18 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 3: Run the confidence gate on a sample**
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `cd mcp && python3 -m pytest test_source_map_build.py -v`
+Expected: PASS, 12 passed
+
+- [ ] **Step 5: Confirm nothing else broke**
+
+Run: `cd mcp && python3 -m pytest -q`
+Expected: PASS. The suite held 30 tests before this task; it must now hold 42,
+with no failures.
+
+- [ ] **Step 6: Run the confidence gate on a sample**
 
 This is the decision point of the whole plan. Do not skip it.
 
@@ -1129,19 +1279,13 @@ cd mcp && python3 build_source_map.py --sample 30
 Expected: a per-key OK/MISS line and a final resolved rate.
 
 **Stop and judge the result:**
-- Rate at or above ~70%: the date hypothesis holds. Continue to Step 4.
-- Rate below ~40%: the hypothesis does not hold. **Stop, report the actual number and a handful of MISS keys, and revisit the matcher with the spec's author before running anything else.** Tasks 1-3 are unaffected and already deliver search-URL fallbacks.
-- In between: spot-check ten resolved links by opening them and confirming the PDF is the document the S3 key names, then decide.
+- Rate at or above ~70%: the date hypothesis holds. Continue to Step 7.
+- Rate below ~40%: **stop, report the actual number and a handful of MISS keys, and
+  do not run the full build.** Tasks 1-3 are unaffected and already deliver
+  search-URL fallbacks, so nothing regresses by stopping here.
+- In between: report the rate and the MISS keys, and ask before continuing.
 
-- [ ] **Step 4: Spot-check resolved links by hand**
-
-```bash
-cd mcp && python3 build_source_map.py --sample 10 2>&1 | grep '^\[.*OK' | head -5
-```
-
-Open two or three of the reported keys' `pubdb` links in a browser and confirm the PDF title matches the S3 key's slug.
-
-- [ ] **Step 5: Run the full build**
+- [ ] **Step 7: Run the full build**
 
 ```bash
 cd mcp && python3 build_source_map.py
@@ -1149,7 +1293,7 @@ cd mcp && python3 build_source_map.py
 
 Expected: a final resolved count and `wrote .../source_map.json`.
 
-- [ ] **Step 6: Smoke-check random links from the finished map**
+- [ ] **Step 8: Smoke-check random links from the finished map**
 
 ```bash
 cd mcp && python3 -c "
@@ -1164,13 +1308,13 @@ print('checked', len(sample), 'links; failures:', bad)
 
 Expected: `failures: []`
 
-- [ ] **Step 7: Verify the adapter now emits verified links**
+- [ ] **Step 9: Verify the adapter now emits verified links**
 
 ```bash
-cd mcp && BFE_MCP_CLIENT_ID=... BFE_MCP_TOKEN_URL=... python3 -c "
-import json, subprocess, os
+cd mcp && export BFE_MCP_CLIENT_ID=$(python3 -c "import json;print(json.load(open('/Users/vlak/OEKG/.mcp.json'))['mcpServers']['bfe-public-knowledge']['env']['BFE_MCP_CLIENT_ID'])") && export BFE_MCP_TOKEN_URL=$(python3 -c "import json;print(json.load(open('/Users/vlak/OEKG/.mcp.json'))['mcpServers']['bfe-public-knowledge']['env']['BFE_MCP_TOKEN_URL'])") && python3 -c "
+import json, subprocess, os, sys
 req = {'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'bfe-public-knowledge___Retrieve','arguments':{'retrievalQuery':{'text':'Photovoltaik Einmalvergütung'}}}}
-out = subprocess.run(['python3','bfe_mcp_proxy.py'], input=json.dumps(req)+chr(10), capture_output=True, text=True, env=os.environ)
+out = subprocess.run([sys.executable,'bfe_mcp_proxy.py'], input=json.dumps(req)+chr(10), capture_output=True, text=True, env=os.environ)
 inner = json.loads(json.loads(out.stdout.splitlines()[0])['result']['content'][0]['text'])
 for r in inner['retrievalResults']:
     print(r['metadata']['source_confidence'], r['metadata']['source_url'][:80])
@@ -1178,30 +1322,26 @@ print('s3 links left:', json.dumps(inner).count('s3.eu-central-1.amazonaws.com')
 "
 ```
 
-Expected: mostly `verified` lines carrying `https://pubdb.bfe.admin.ch/...`, and `s3 links left: 0`.
+Expected: `s3 links left: 0`, and at least some lines reading `verified` with a
+`https://pubdb.bfe.admin.ch/...` URL.
 
-- [ ] **Step 8: Run the whole test suite**
+- [ ] **Step 10: Lint and format**
 
-Run: `cd mcp && python3 -m pytest -v`
-Expected: PASS, 24 passed
-
-- [ ] **Step 9: Lint and format**
-
-Run: `ruff format mcp/build_source_map.py && ruff check mcp/build_source_map.py`
+Run: `ruff format mcp/build_source_map.py mcp/test_source_map_build.py && ruff check mcp/build_source_map.py mcp/test_source_map_build.py`
 Expected: `All checks passed!`
 
-- [ ] **Step 10: Confirm no credentials are being committed**
+- [ ] **Step 11: Confirm no credentials are being committed**
 
 ```bash
-git add -A && git diff --cached | grep -inE 'BFE_MCP_CLIENT_ID *= *"[^"]|client_secret|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{20,}' || echo "clean"
+git add -A && git diff --cached | grep -inE 'BFE_MCP_CLIENT_ID *= *"[^"$]|client_secret|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{20,}' || echo "clean"
 ```
 
 Expected: `clean`
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
-git commit -m "Build the S3 key to publication map and wire it in
+git commit -m "Rebuild the matcher around the existing pubdb index
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
