@@ -117,20 +117,16 @@ st.markdown(
 # ============================================================
 
 EXAMPLE_QUESTIONS = {
-    "General knowledge":
-        "What role does hydropower play in Switzerland?",
-
-    "Timeline":
-        "How has photovoltaic production developed from 2020 to 2024?",
-
-    "Chart values":
-        "What values are shown in the SFOE chart for renewable electricity production?",
+    "General knowledge": "What role does hydropower play in Switzerland?",
+    "Timeline": "How has photovoltaic production developed from 2020 to 2024?",
+    "Chart values": "What values are shown in the SFOE chart for renewable electricity production?",
 }
 
 
 # ============================================================
 # 4. SHORT TOOL LABEL
 # ============================================================
+
 
 def friendly_tool_name(
     tool_name: str,
@@ -142,14 +138,9 @@ def friendly_tool_name(
     """
 
     mapping = {
-        agent_app.SEARCH_TOOL_HINT:
-            "Knowledge Search",
-
-        agent_app.TIMELINE_TOOL_HINT:
-            "Metric Timeline",
-
-        agent_app.CHART_TOOL_HINT:
-            "Chart / Table Data",
+        agent_app.SEARCH_TOOL_HINT: "Knowledge Search",
+        agent_app.TIMELINE_TOOL_HINT: "Metric Timeline",
+        agent_app.CHART_TOOL_HINT: "Chart / Table Data",
     }
 
     return mapping.get(
@@ -177,6 +168,7 @@ def friendly_tool_name(
 # and tools/list calls during a normal demo session.
 # ============================================================
 
+
 @st.cache_resource
 def initialize_agent() -> Tuple[
     Optional[str],
@@ -191,17 +183,11 @@ def initialize_agent() -> Tuple[
     agent_app.validate_configuration()
 
     if agent_app.cognito_is_configured():
-        access_token = (
-            agent_app.fetch_access_token()
-        )
+        access_token = agent_app.fetch_access_token()
     else:
         access_token = None
 
-    tools = (
-        agent_app.list_mcp_tools(
-            access_token
-        )
-    )
+    tools = agent_app.list_mcp_tools(access_token)
 
     return (
         access_token,
@@ -212,6 +198,7 @@ def initialize_agent() -> Tuple[
 # ============================================================
 # 6. RUN ONE AGENT QUESTION
 # ============================================================
+
 
 def run_agent(
     question: str,
@@ -248,20 +235,14 @@ def run_agent(
     # STEP 1: TOOL ROUTING
     # --------------------------------------------------------
 
-    selection = (
-        agent_app.choose_tool(
-            question=question,
-            tools=tools,
-        )
+    selection = agent_app.choose_tool(
+        question=question,
+        tools=tools,
     )
 
-    tool_name = selection[
-        "tool_name"
-    ]
+    tool_name = selection["tool_name"]
 
-    arguments = selection[
-        "arguments"
-    ]
+    arguments = selection["arguments"]
 
     repair_attempted = False
 
@@ -270,15 +251,10 @@ def run_agent(
     # --------------------------------------------------------
 
     try:
-        tool_payload = (
-            agent_app.call_mcp_tool(
-                tool_name=
-                    tool_name,
-                arguments=
-                    arguments,
-                access_token=
-                    access_token,
-            )
+        tool_payload = agent_app.call_mcp_tool(
+            tool_name=tool_name,
+            arguments=arguments,
+            access_token=access_token,
         )
 
     except Exception as first_error:
@@ -289,38 +265,23 @@ def run_agent(
 
         repair_attempted = True
 
-        repaired = (
-            agent_app.repair_tool_arguments(
-                question=
-                    question,
-                selection=
-                    selection,
-                error_message=
-                    str(first_error),
-                tools=
-                    tools,
-            )
+        repaired = agent_app.repair_tool_arguments(
+            question=question,
+            selection=selection,
+            error_message=str(first_error),
+            tools=tools,
         )
 
         selection = repaired
 
-        tool_name = repaired[
-            "tool_name"
-        ]
+        tool_name = repaired["tool_name"]
 
-        arguments = repaired[
-            "arguments"
-        ]
+        arguments = repaired["arguments"]
 
-        tool_payload = (
-            agent_app.call_mcp_tool(
-                tool_name=
-                    tool_name,
-                arguments=
-                    arguments,
-                access_token=
-                    access_token,
-            )
+        tool_payload = agent_app.call_mcp_tool(
+            tool_name=tool_name,
+            arguments=arguments,
+            access_token=access_token,
         )
 
     # --------------------------------------------------------
@@ -330,28 +291,19 @@ def run_agent(
     (
         context,
         sources,
-    ) = (
-        agent_app.prepare_agent_context(
-            tool_name=
-                tool_name,
-            tool_payload=
-                tool_payload,
-        )
+    ) = agent_app.prepare_agent_context(
+        tool_name=tool_name,
+        tool_payload=tool_payload,
     )
 
     # --------------------------------------------------------
     # STEP 4: GENERATE GROUNDED ANSWER
     # --------------------------------------------------------
 
-    answer = (
-        agent_app.generate_answer(
-            question=
-                question,
-            tool_name=
-                tool_name,
-            context=
-                context,
-        )
+    answer = agent_app.generate_answer(
+        question=question,
+        tool_name=tool_name,
+        context=context,
     )
 
     # --------------------------------------------------------
@@ -361,44 +313,26 @@ def run_agent(
     (
         answer,
         sources,
-    ) = (
-        agent_app.clean_answer_and_sources(
-            answer=
-                answer,
-            sources=
-                sources,
-        )
+    ) = agent_app.clean_answer_and_sources(
+        answer=answer,
+        sources=sources,
     )
 
-    elapsed = (
-        time.perf_counter()
-        - started
-    )
+    elapsed = time.perf_counter() - started
 
     return {
-        "question":
-            question,
-        "tool_name":
-            tool_name,
-        "tool_label":
-            friendly_tool_name(
-                tool_name
-            ),
-        "routing_reason":
-            selection.get(
-                "reason",
-                "",
-            ),
-        "arguments":
-            arguments,
-        "answer":
-            answer,
-        "sources":
-            sources,
-        "latency_seconds":
-            elapsed,
-        "repair_attempted":
-            repair_attempted,
+        "question": question,
+        "tool_name": tool_name,
+        "tool_label": friendly_tool_name(tool_name),
+        "routing_reason": selection.get(
+            "reason",
+            "",
+        ),
+        "arguments": arguments,
+        "answer": answer,
+        "sources": sources,
+        "latency_seconds": elapsed,
+        "repair_attempted": repair_attempted,
     }
 
 
@@ -428,25 +362,34 @@ st.markdown(
 # ============================================================
 
 try:
-    with st.spinner(
-        "Connecting to the SFOE knowledge gateway..."
-    ):
+    with st.spinner("Connecting to the SFOE knowledge gateway..."):
         (
             access_token,
             tools,
         ) = initialize_agent()
 
 except Exception as error:
-    st.error(
-        "Could not initialize the SFOE agent."
-    )
+    # ========================================================
+    # GOAL
+    # ========================================================
+    # Show a clean initialization error instead of a full
+    # Python traceback.
+    #
+    # INPUT
+    # --------------------------------------------------------
+    # Any error raised while authenticating or discovering
+    # MCP tools.
+    #
+    # OUTPUT
+    # --------------------------------------------------------
+    # A short user-facing error message.
+    # ========================================================
 
-    st.exception(
-        error
+    st.error(
+        "Could not connect to the SFOE knowledge gateway. Please try again in a moment."
     )
 
     st.stop()
-
 
 # ============================================================
 # 9. SHOW BACKEND STATUS
@@ -456,9 +399,7 @@ with st.expander(
     "System status",
     expanded=False,
 ):
-    col1, col2 = st.columns(
-        2
-    )
+    col1, col2 = st.columns(2)
 
     with col1:
         st.metric(
@@ -469,14 +410,10 @@ with st.expander(
     with col2:
         st.metric(
             "Available MCP tools",
-            len(
-                tools
-            ),
+            len(tools),
         )
 
-    st.caption(
-        "Gateway tools discovered dynamically:"
-    )
+    st.caption("Gateway tools discovered dynamically:")
 
     for tool in tools:
         st.code(
@@ -492,13 +429,9 @@ with st.expander(
 # 10. EXAMPLE QUESTION BUTTONS
 # ============================================================
 
-st.markdown(
-    "#### Example questions"
-)
+st.markdown("#### Example questions")
 
-example_columns = st.columns(
-    3
-)
+example_columns = st.columns(3)
 
 for (
     column,
@@ -515,22 +448,15 @@ for (
             label,
             use_container_width=True,
         ):
-            st.session_state[
-                "question_input"
-            ] = example_question
+            st.session_state["question_input"] = example_question
 
 
 # ============================================================
 # 11. QUESTION INPUT
 # ============================================================
 
-if (
-    "question_input"
-    not in st.session_state
-):
-    st.session_state[
-        "question_input"
-    ] = ""
+if "question_input" not in st.session_state:
+    st.session_state["question_input"] = ""
 
 
 question = st.text_area(
@@ -538,8 +464,7 @@ question = st.text_area(
     key="question_input",
     height=100,
     placeholder=(
-        "Example: How has photovoltaic production "
-        "developed from 2020 to 2024?"
+        "Example: How has photovoltaic production developed from 2020 to 2024?"
     ),
 )
 
@@ -555,11 +480,8 @@ ask_button = st.button(
 # ============================================================
 
 if ask_button:
-
     if not question.strip():
-        st.warning(
-            "Please enter a question."
-        )
+        st.warning("Please enter a question.")
 
     else:
         try:
@@ -568,66 +490,49 @@ if ask_button:
                 "and generating a grounded answer..."
             ):
                 result = run_agent(
-                    question=
-                        question.strip(),
-                    access_token=
-                        access_token,
-                    tools=
-                        tools,
+                    question=question.strip(),
+                    access_token=access_token,
+                    tools=tools,
                 )
 
-            st.session_state[
-                "last_result"
-            ] = result
+            st.session_state["last_result"] = result
 
         except Exception as error:
             st.error(
-                "The agent could not complete the request."
+                "The SFOE knowledge service could not complete this request. "
+                "Please try again or make the question more specific."
             )
 
-            st.exception(
-                error
-            )
+            # Optional technical information for development/debugging.
+            with st.expander("Technical details"):
+                st.code(str(error))
 
 
 # ============================================================
 # 13. DISPLAY LAST RESULT
 # ============================================================
 
-result = st.session_state.get(
-    "last_result"
-)
+result = st.session_state.get("last_result")
 
 if result:
-
     st.divider()
 
     # --------------------------------------------------------
     # Selected tool + latency
     # --------------------------------------------------------
 
-    info_col1, info_col2 = (
-        st.columns(
-            [
-                3,
-                1,
-            ]
-        )
+    info_col1, info_col2 = st.columns(
+        [
+            3,
+            1,
+        ]
     )
 
     with info_col1:
-        st.markdown(
-            "##### Selected tool"
-        )
+        st.markdown("##### Selected tool")
 
         st.markdown(
-            (
-                '<span class="tool-badge">'
-                + result[
-                    "tool_label"
-                ]
-                + "</span>"
-            ),
+            ('<span class="tool-badge">' + result["tool_label"] + "</span>"),
             unsafe_allow_html=True,
         )
 
@@ -641,20 +546,14 @@ if result:
     # Final answer
     # --------------------------------------------------------
 
-    st.markdown(
-        "### Answer"
-    )
+    st.markdown("### Answer")
 
     st.markdown(
         '<div class="answer-card">',
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        result[
-            "answer"
-        ]
-    )
+    st.markdown(result["answer"])
 
     st.markdown(
         "</div>",
@@ -665,9 +564,7 @@ if result:
     # Sources
     # --------------------------------------------------------
 
-    st.markdown(
-        "### Official SFOE sources"
-    )
+    st.markdown("### Official SFOE sources")
 
     sources = result.get(
         "sources",
@@ -675,52 +572,27 @@ if result:
     )
 
     if not sources:
-        st.info(
-            "No source citations were returned for this answer."
-        )
+        st.info("No source citations were returned for this answer.")
 
     else:
         for source in sources:
+            source_number = source.get("number", "?")
 
-            source_number = (
-                source.get(
-                    "number",
-                    "?"
-                )
-            )
+            title = source.get("title") or "SFOE publication"
 
-            title = (
-                source.get(
-                    "title"
-                )
-                or "SFOE publication"
-            )
+            published_at = source.get("published_at")
 
-            published_at = (
-                source.get(
-                    "published_at"
-                )
-            )
-
-            download_url = (
-                source.get(
-                    "download_url"
-                )
-            )
+            download_url = source.get("download_url")
 
             st.markdown(
                 '<div class="source-card">',
                 unsafe_allow_html=True,
             )
 
-            st.markdown(
-                f"**[{source_number}] {title}**"
-            )
+            st.markdown(f"**[{source_number}] {title}**")
 
             if published_at:
-                st.caption(
-                    f"Published: {published_at}"
-                )
+                st.caption(f"Published: {published_at}")
 
             if download_url:
                 st.link_button(
@@ -741,59 +613,28 @@ if result:
         "Agent details",
         expanded=False,
     ):
-
-        st.markdown(
-            "**Selected MCP tool**"
-        )
+        st.markdown("**Selected MCP tool**")
 
         st.code(
-            result[
-                "tool_name"
-            ],
+            result["tool_name"],
             language=None,
         )
 
-        st.markdown(
-            "**Routing reason**"
-        )
+        st.markdown("**Routing reason**")
 
-        st.write(
-            result[
-                "routing_reason"
-            ]
-        )
+        st.write(result["routing_reason"])
 
-        st.markdown(
-            "**Tool arguments**"
-        )
+        st.markdown("**Tool arguments**")
 
-        st.json(
-            result[
-                "arguments"
-            ]
-        )
+        st.json(result["arguments"])
 
-        st.markdown(
-            "**Automatic repair used**"
-        )
+        st.markdown("**Automatic repair used**")
 
-        st.write(
-            (
-                "Yes"
-                if result[
-                    "repair_attempted"
-                ]
-                else "No"
-            )
-        )
+        st.write(("Yes" if result["repair_attempted"] else "No"))
 
-        st.markdown(
-            "**Agent latency**"
-        )
+        st.markdown("**Agent latency**")
 
-        st.write(
-            f"{result['latency_seconds']:.2f} seconds"
-        )
+        st.write(f"{result['latency_seconds']:.2f} seconds")
 
 
 # ============================================================
