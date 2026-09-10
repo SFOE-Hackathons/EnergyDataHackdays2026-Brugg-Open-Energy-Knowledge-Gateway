@@ -7,10 +7,12 @@ import pypdf
 import requests
 from bs4 import BeautifulSoup
 
+from . import config
+
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://pubdb.bfe.admin.ch"
+BASE_URL = config.PUBDB_BASE_URL
 SEARCH_URL = f"{BASE_URL}/de/suche"
 SEARCH_TIMEOUT = 30
 DOWNLOAD_TIMEOUT = 60

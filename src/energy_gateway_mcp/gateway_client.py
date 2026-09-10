@@ -7,20 +7,15 @@ import time
 import requests
 from dotenv import load_dotenv
 
+from . import config
+
 load_dotenv()
 
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN_URL = (
-    "https://my-domain-ajdb98m7.auth.eu-central-1.amazoncognito.com/"
-    "oauth2/token"
-)
-
-GATEWAY_URL = (
-    "https://sandbox-bfe-public-kb-8thmswsvit."
-    "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
-)
+TOKEN_URL = config.TOKEN_URL
+GATEWAY_URL = config.GATEWAY_URL
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
 
