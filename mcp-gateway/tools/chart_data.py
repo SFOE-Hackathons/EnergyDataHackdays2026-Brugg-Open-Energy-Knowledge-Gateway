@@ -1,19 +1,20 @@
 """get_chart_data tool."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
 from mcp.server.mcpserver.exceptions import ToolError
 
 from chart_parsing import extract_data_blocks, extract_title, parse_data_block
+from passages import CORE, dedupe, intern_sources, project_source
 from semantics import (
     classify_extraction_method,
     detect_projection,
     infer_bases,
     years_from_rows,
 )
-from tools.base import BaseTool
+from tools.base import BaseTool, SOURCES_TABLE_DESCRIPTION, SOURCE_FIELDS_DESCRIPTION
 
 
 class ChartDataTool(BaseTool):
@@ -57,8 +58,10 @@ class ChartDataTool(BaseTool):
         "rows look wrong. Coverage is opportunistic: only some "
         "figures were transcribed with usable data, so a topic may "
         "legitimately return zero charts - falling back to "
-        "search_energy_knowledge is the right move when that happens. Every "
-        "chart carries full source attribution, including the document's "
+        "search_energy_knowledge is the right move when that happens. "
+        + SOURCES_TABLE_DESCRIPTION + " "
+        "Every chart resolves to full source attribution, including the "
+        "document's "
         "publication date (published_at) and a public download_url pointing "
         "directly at the original PDF, which anyone can open without "
         "credentials; download_url is null for the few documents that could "
@@ -86,9 +89,18 @@ class ChartDataTool(BaseTool):
         "Year {topic} MW GWh TJ 2010 2015 2020 2024",
     )
 
-    # The knowledge base caps results at 5 per query regardless of what is
-    # requested, so there is no point asking for more.
-    RESULTS_PER_PROBE = 5
+    # How many results to keep from each probe before pooling.
+    #
+    # This was 5 because the previous gateway pinned every search to 5 results
+    # and asking for more was pointless. The current gateway returns up to ~40
+    # (infra/create-gateway.sh), so a low value here now silently discards most
+    # of what was already fetched and paid for - and chart chunks are exactly
+    # the kind of result that ranks below the prose it illustrates, so they sat
+    # in the part being thrown away.
+    #
+    # Raising this costs no extra requests; the probes are unchanged and the
+    # work is local parsing over a larger pool.
+    RESULTS_PER_PROBE = 25
 
     def run(
         self,
@@ -100,6 +112,10 @@ class ChartDataTool(BaseTool):
             int,
             Field(description="Maximum number of parsed charts to return.", ge=1, le=15),
         ] = 5,
+        source_fields: Annotated[
+            Literal["core", "all"],
+            Field(description=SOURCE_FIELDS_DESCRIPTION),
+        ] = CORE,
     ) -> dict:
         if not topic.strip():
             raise ToolError("topic must not be empty.")
@@ -109,28 +125,38 @@ class ChartDataTool(BaseTool):
         charts.sort(key=lambda chart: chart["score"] or 0, reverse=True)
         charts = charts[:max_charts]
 
+        # Trimmed after the cut to max_charts, so the work is done only for
+        # the charts actually being returned.
+        for chart in charts:
+            if chart.get("source"):
+                chart["source"] = project_source(chart["source"], source_fields)
+        charts, sources = intern_sources(charts)
+
         return {
             "topic": topic,
             "probes_run": len(self.QUERY_PROBE_TEMPLATES),
+            "source_fields": source_fields,
             "chart_count": len(charts),
+            "sources": sources,
             "charts": charts,
         }
 
     def _pool_results(self, topic: str) -> list[dict]:
         """Run every query probe and deduplicate the pooled results.
 
-        Duplicates are keyed on (document title, text prefix); the
-        highest-scoring copy is kept.
+        The probes overlap heavily by design, so the same chunk comes back
+        from several of them; `dedupe` keeps the highest-scoring copy.
+
+        This used to key on (document title, text prefix). Including the title
+        defeated the purpose: the corpus stores the same publication under more
+        than one document name, so two copies of one chart got different keys
+        and both survived, each then parsed into a separate chart. Keying on
+        the text alone is what actually collapses them.
         """
-        best_by_key: dict[tuple, dict] = {}
+        pooled = []
         for template in self.QUERY_PROBE_TEMPLATES:
-            probe = template.format(topic=topic)
-            for result in self.search(probe, self.RESULTS_PER_PROBE):
-                key = (result.get("source", {}).get("title"), result.get("text", "")[:200])
-                existing = best_by_key.get(key)
-                if existing is None or (result.get("score") or 0) > (existing.get("score") or 0):
-                    best_by_key[key] = result
-        return list(best_by_key.values())
+            pooled.extend(self.search(template.format(topic=topic), self.RESULTS_PER_PROBE))
+        return dedupe(pooled)
 
     def _extract_charts(self, results: list[dict]) -> list[dict]:
         charts = []

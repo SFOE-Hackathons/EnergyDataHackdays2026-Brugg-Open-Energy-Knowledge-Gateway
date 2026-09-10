@@ -1,87 +1,74 @@
+"""Call one gateway tool from the command line and print what comes back.
+
+    python3 query_gateway.py "Rolle der Wasserkraft in der Stromversorgung"
+    python3 query_gateway.py --max-results 10 "Photovoltaik Zubau 2023"
+    python3 query_gateway.py --tool get_metric_timeline \
+        --arg metric="installierte PV-Leistung" \
+        --arg start_year=2020 --arg end_year=2024
+
+The default tool is search_energy_knowledge, whose only required argument is
+the query, which is why it can be given positionally. Anything else needs
+--tool and explicit --arg pairs; run `python3 list_tools.py` to see what each
+tool takes.
+"""
+
 import argparse
 import json
-import os
 
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-CLIENT_ID = os.environ["CLIENT_ID"]
-CLIENT_SECRET = os.environ["CLIENT_SECRET"]
-
-TOKEN_URL = (
-    "https://my-domain-ajdb98m7.auth.eu-central-1.amazoncognito.com/"
-    "oauth2/token"
-)
-
-GATEWAY_URL = (
-    "https://sandbox-bfe-public-kb-8thmswsvit."
-    "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
-)
-
-MCP_PROTOCOL_VERSION = "2026-07-28"
-
-TOOL_NAME = "bfe-public-knowledge___Retrieve"
+from gateway_client import GatewayError, call_tool, fetch_access_token
 
 
-def fetch_access_token():
-    response = requests.post(
-        TOKEN_URL,
-        data={
-            "grant_type": "client_credentials",
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()["access_token"]
+def parse_arg(pair: str) -> tuple[str, object]:
+    """Split a `name=value` pair, giving the value its JSON type where it has
+    one. Tool schemas are typed, so passing start_year as the string "2020"
+    is rejected by the server -- but quoting it on the command line is the
+    natural thing to do, so ints, floats, booleans and null are recognized
+    and everything else stays a string."""
+    if "=" not in pair:
+        raise argparse.ArgumentTypeError(f"expected name=value, got {pair!r}")
+    name, _, raw = pair.partition("=")
+    try:
+        return name, json.loads(raw)
+    except json.JSONDecodeError:
+        return name, raw
 
 
-def retrieve(gateway_url, access_token, question):
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-        "Mcp-Method": "tools/call",
-        "Mcp-Name": TOOL_NAME,
-    }
-
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "retrieve-request",
-        "method": "tools/call",
-        "params": {
-            "name": TOOL_NAME,
-            "arguments": {"retrievalQuery": {"text": question}},
-            "_meta": {
-                "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-                "io.modelcontextprotocol/clientInfo": {
-                    "name": "bfe-hackathon-test",
-                    "version": "1.0.0",
-                },
-                "io.modelcontextprotocol/clientCapabilities": {},
-            },
-        },
-    }
-
-    response = requests.post(gateway_url, headers=headers, json=payload, timeout=120)
-    response.raise_for_status()
-    return response.json()
-
-
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Query the BFE public knowledge MCP gateway with a custom prompt."
+        description="Call one tool on the BFE energy knowledge MCP gateway."
     )
-    parser.add_argument("prompt", help="The question to send as retrievalQuery.text")
+    parser.add_argument("query", nargs="?", help="Query for search_energy_knowledge.")
+    parser.add_argument(
+        "--tool",
+        default="search_energy_knowledge",
+        help="Unqualified tool name; the gateway target prefix is added for you.",
+    )
+    parser.add_argument(
+        "--arg",
+        action="append",
+        type=parse_arg,
+        default=[],
+        metavar="NAME=VALUE",
+        help="An argument for the tool. Repeatable.",
+    )
+    parser.add_argument("--max-results", type=int, help="Shorthand for --arg max_results=N.")
     args = parser.parse_args()
 
-    access_token = fetch_access_token()
-    result = retrieve(GATEWAY_URL, access_token, args.prompt)
+    arguments = dict(args.arg)
+    if args.query is not None:
+        arguments["query"] = args.query
+    if args.max_results is not None:
+        arguments["max_results"] = args.max_results
+
+    if not arguments:
+        parser.error("give a query, or arguments with --arg NAME=VALUE")
+
+    token = fetch_access_token()
+    try:
+        result = call_tool(args.tool, arguments, token)
+    except GatewayError as exc:
+        raise SystemExit(f"{args.tool} failed:\n{exc}") from exc
+
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
 

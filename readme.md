@@ -10,6 +10,76 @@ Login-URL fuer die Konsole:
 https://542202863496.signin.aws.amazon.com/console
 
 
+# What This Repository Contains
+
+Everything below this section is the challenge brief as handed out, describing
+the infrastructure that already existed. What the team built on top of it:
+
+| Path | What it is |
+| --- | --- |
+| [`mcp-gateway/`](mcp-gateway/README.md) | The MCP server. It calls Bedrock `Retrieve` directly and turns the raw retrieval response into ranked passages with source attribution, public PDF download URLs, and per-passage annotations (what the numbers measure, which years they cover, whether they are projections or were cut off mid-chunk). It exposes three tools: `search_energy_knowledge`, `get_metric_timeline` and `get_chart_data`. |
+| [`infra/deploy-lambda.sh`](infra/deploy-lambda.sh) | Deploys that server as a Lambda function that only the gateway's IAM role may invoke, with a hard concurrency cap and a one-command kill switch. It has no URL and no HTTP route of any kind. |
+| [`infra/create-gateway.sh`](infra/create-gateway.sh) | The AgentCore Gateway clients actually talk to, as a single re-runnable script. It is not the `sandbox-bfe-public-kb` gateway described below. |
+| `gateway_client.py`, `list_tools.py`, `query_gateway.py`, `test_gateway.py` | A dependency-light reference client and three scripts that exercise the deployed gateway end to end. |
+
+## The shape of it
+
+```text
+MCP client ──(Cognito JWT)──▶ AgentCore Gateway ──(Lambda Invoke)──▶ MCP server
+                                                                     Lambda
+                                                                        │
+                                                              (execution role, IAM)
+                                                                        ▼
+                                                         Bedrock KB-bfe-public
+```
+
+The gateway sits **in front of** the MCP server. That is worth stating because
+it was the other way round for most of the build: the server held Cognito
+credentials and called a `bedrock-knowledge-bases` connector target on the
+gateway, which forwarded to Bedrock. Turning it around removed a full
+round trip per search, deleted the client secret from the deployment, and made
+retrieval parameters a property of the question rather than of the gateway.
+
+Three consequences follow, and all three are deliberate:
+
+- **The endpoint is authenticated, not open.** Reaching it needs a Cognito
+  `client_credentials` token. An earlier design served it anonymously through
+  CloudFront; that has been torn down. Access control is now the gateway's job,
+  which is where it belongs if this ever serves more than one consumer.
+- **The `bfe-public-knowledge___Retrieve` tool is gone.** Clients call
+  `bfe-energy___search_energy_knowledge` and its two siblings instead. They
+  return the same corpus, deduplicated, source-attributed and annotated.
+- **The gateway invokes the Lambda rather than speaking MCP to it.** The
+  natural design — an `mcp.mcpServer` target pointed at an IAM-authorised
+  Function URL — cannot work: AgentCore's outbound SigV4 signer signs POST
+  bodies as empty, and MCP's HTTP transport is POST-only, so every request is
+  rejected on signature before the function runs. A Lambda target sidesteps the
+  signer entirely. The price is that the tool catalogue is no longer
+  discovered, so `create-gateway.sh` generates it from the server and uploads
+  it — meaning a tool change needs **both** scripts re-run, in order. See
+  [`mcp-gateway/lambda_handler.py`](mcp-gateway/lambda_handler.py) for the
+  evidence behind that.
+
+**On retrieval breadth.** The provided gateways pin `numberOfResults` to 5 —
+Bedrock's default. Measured over 12 German, French, Italian and English
+questions, those 5 passages came from a mean of 3.4 distinct documents, with 48%
+of them from a single document; one Italian question was answered entirely out
+of one PDF. On a connector target that value cannot be overridden per request:
+the `bedrock-knowledge-bases` connector accepts no `parameterOverrides` paths at
+all, so retrieval breadth is a property of the gateway and not of the question.
+Owning the `Retrieve` call is what fixes that; it is set to 50 in
+[`mcp-gateway/knowledge_base.py`](mcp-gateway/knowledge_base.py), which explains
+why 50 and not 25.
+
+**On the account's guardrails.** They shaped the deployment and are worth
+knowing before extending it. AWS Organization `o-3r6tcb49g2` denies API Gateway,
+ALB, App Runner, Lightsail and Amplify outright, and denies anonymous Lambda
+invocation: an open Function URL (`--auth-type NONE`, `Principal: "*"`) returned
+403 for every request with no log group ever created, while a direct
+`lambda invoke` of the same function succeeded. See `mcp-gateway/README.md` for
+the evidence. The deployment has no Function URL at all now, for the unrelated
+reason above.
+
 
 # Starting Point
 

@@ -1,19 +1,41 @@
 """Client for the Swiss federal energy publications knowledge base.
 
-Implementation note (maintainers only, not exposed to callers): this talks
-to an AWS Bedrock AgentCore Gateway that fronts the knowledge base, using a
-Cognito client_credentials token, and calls its `Retrieve` tool. The raw,
-deeply-nested AgentCore/Bedrock retrieval response is normalized here into a
-flat, simple result shape before it ever reaches a tool.
+Implementation note (maintainers only, not exposed to callers): this calls the
+Bedrock `Retrieve` API directly, with the ambient AWS identity. The raw,
+deeply-nested Bedrock retrieval response is normalized here into a flat, simple
+result shape before it ever reaches a tool.
+
+WHY NOT THROUGH THE AGENTCORE GATEWAY. It used to be: this module minted a
+Cognito token and called a `bfe-public-knowledge___Retrieve` tool on the
+gateway, which forwarded to exactly this API. That hop was removed because the
+gateway now sits in FRONT of this server rather than behind it -- clients reach
+the gateway, the gateway reaches this server, and this server reaching back
+into the same gateway would have made a loop with two AgentCore hops per search.
+
+Three things fell out of removing it:
+
+  - The Cognito client secret left the deployment entirely. Access is now an
+    IAM grant (`bedrock:Retrieve` on the knowledge base) on whatever role this
+    runs as, which also means an IAM-based budget action can actually throttle
+    upstream spend -- it could not before.
+
+  - `numberOfResults` became a request field again. The gateway's connector
+    target pins it for every caller and rejects `parameterOverrides` outright
+    (see infra/create-gateway.sh), which made retrieval breadth a property of
+    the gateway rather than of the question. It is a plain field on this API.
+
+  - `AgenticRetrieveStream` is no longer reachable. The connector exposed it
+    alongside `Retrieve`; it plans and retrieves iteratively over several steps.
+    Nothing here ever used it and the plain Retrieve API has no equivalent, so
+    trying it would mean putting a connector target back.
 """
 
-import json
-import threading
-import time
-
-import requests
+import boto3
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import BotoCoreError, ClientError
 
 from config import Config
+from passages import dedupe
 from public_source import PublicSourceResolver, parse_document_name
 from semantics import (
     detect_projection,
@@ -22,8 +44,28 @@ from semantics import (
     infer_bases,
 )
 
-MCP_PROTOCOL_VERSION = "2026-07-28"
-RETRIEVE_TOOL_NAME = "bfe-public-knowledge___Retrieve"
+# How many passages to ask Bedrock for, regardless of how many the caller wants
+# back. Deliberately NOT `max_results`.
+#
+# Two reasons it has to be an over-fetch. Passages are deduplicated below --
+# the corpus stores the same publication under several document names, so a
+# query routinely retrieves one passage twice -- and asking for exactly
+# max_results would hand back fewer than requested once the copies collapse.
+# And the managed reranker applies its own relevance cutoff, returning fewer
+# than asked (50 -> ~37, 100 -> ~63), so the number is an upper bound rather
+# than a promise.
+#
+# 50 preserves the value the gateway's connector target pinned, which was
+# chosen with measurements: over 12 DE/FR/IT/EN questions, 5 results came from
+# a mean of 3.4 distinct documents with 48% from a single one -- far too narrow
+# a base for a national-scale question -- while 25 drew on 12.8 distinct
+# documents with a 25% top-document share.
+#
+# This is now a per-request knob rather than a gateway-wide setting, so it
+# COULD scale with max_results. It deliberately does not yet: retrieval quality
+# and the transport were changed in the same step, and moving both at once
+# would make a regression impossible to attribute. Hard limit is 100.
+RETRIEVAL_BREADTH = 50
 
 
 class KnowledgeBaseError(Exception):
@@ -37,89 +79,58 @@ class KnowledgeBaseError(Exception):
 class KnowledgeBaseClient:
     """Queries the Swiss federal energy publications knowledge base."""
 
-    def __init__(self, config: Config, public_sources: PublicSourceResolver | None = None):
+    def __init__(
+        self,
+        config: Config,
+        public_sources: PublicSourceResolver | None = None,
+        client=None,
+    ):
         self._config = config
-        self._token_lock = threading.Lock()
-        self._token_cache = {"access_token": None, "expires_at": 0.0}
         self._public_sources = public_sources or PublicSourceResolver()
+        self._client = client or boto3.client(
+            "bedrock-agent-runtime",
+            region_name=config.region,
+            # get_metric_timeline issues one retrieval per year, sequentially,
+            # inside a single 60-second Lambda budget. A default 60-second read
+            # timeout would let one slow call eat the whole budget and time the
+            # request out with nothing to show; 15 seconds against a ~2s
+            # measured call fails fast enough to leave room for the retry.
+            config=BotoConfig(
+                read_timeout=15,
+                connect_timeout=5,
+                retries={"max_attempts": 3, "mode": "standard"},
+            ),
+        )
 
     def search(self, query: str, max_results: int) -> list[dict]:
         """Run a semantic search and return a score-sorted, ranked list of
         normalized passages, truncated to max_results."""
-        raw_response = self._call_retrieve(query)
-        return self._normalize(raw_response, max_results)
+        return self._normalize(self._retrieve(query), max_results)
 
-    def _get_access_token(self) -> str:
-        with self._token_lock:
-            cache = self._token_cache
-            if cache["access_token"] and time.monotonic() < cache["expires_at"]:
-                return cache["access_token"]
-
-            response = requests.post(
-                self._config.token_url,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": self._config.client_id,
-                    "client_secret": self._config.client_secret,
+    def _retrieve(self, query: str) -> list[dict]:
+        try:
+            response = self._client.retrieve(
+                knowledgeBaseId=self._config.knowledge_base_id,
+                retrievalQuery={"text": query},
+                retrievalConfiguration={
+                    # managedSearchConfiguration, not vectorSearchConfiguration:
+                    # this is a managed knowledge base, and the vector variant
+                    # is rejected for those with a ValidationException.
+                    "managedSearchConfiguration": {
+                        "numberOfResults": RETRIEVAL_BREADTH
+                    }
                 },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                timeout=30,
             )
-            response.raise_for_status()
-            payload = response.json()
+        except (ClientError, BotoCoreError) as exc:
+            # Deliberately not interpolated into the message. A ClientError
+            # from Bedrock names the knowledge base id, the account and the
+            # role that was denied, and this message goes to whoever called the
+            # tool.
+            raise KnowledgeBaseError("Knowledge base query failed.") from exc
 
-            cache["access_token"] = payload["access_token"]
-            cache["expires_at"] = time.monotonic() + payload.get("expires_in", 3600) - 30
-            return cache["access_token"]
+        return response.get("retrievalResults", [])
 
-    def _call_retrieve(self, query: str) -> dict:
-        access_token = self._get_access_token()
-
-        response = requests.post(
-            self._config.gateway_url,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-                "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-                "Mcp-Method": "tools/call",
-                "Mcp-Name": RETRIEVE_TOOL_NAME,
-            },
-            json={
-                "jsonrpc": "2.0",
-                "id": "retrieve-request",
-                "method": "tools/call",
-                "params": {
-                    "name": RETRIEVE_TOOL_NAME,
-                    "arguments": {"retrievalQuery": {"text": query}},
-                    "_meta": {
-                        "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-                        "io.modelcontextprotocol/clientInfo": {
-                            "name": "open-energy-knowledge-gateway",
-                            "version": "1.0.0",
-                        },
-                        "io.modelcontextprotocol/clientCapabilities": {},
-                    },
-                },
-            },
-            timeout=120,
-        )
-        response.raise_for_status()
-        return response.json()
-
-    def _normalize(self, raw_response: dict, max_results: int) -> list[dict]:
-        result = raw_response.get("result", {})
-
-        if result.get("isError"):
-            raise KnowledgeBaseError("Knowledge base query failed.")
-
-        content_blocks = result.get("content", [])
-        if not content_blocks:
-            return []
-
-        inner = json.loads(content_blocks[0]["text"])
-        retrieval_results = inner.get("retrievalResults", [])
-
+    def _normalize(self, retrieval_results: list[dict], max_results: int) -> list[dict]:
         cleaned = []
         for item in retrieval_results:
             metadata = item.get("metadata", {})
@@ -149,8 +160,23 @@ class KnowledgeBaseClient:
                 }
             )
 
-        cleaned.sort(key=lambda item: item["score"] or 0, reverse=True)
-        cleaned = cleaned[:max_results]
+        # Sorted with an explicit tie-break rather than on score alone.
+        # Deduplication below makes the winner between two equally-scored
+        # copies observable, so the order has to be a function of the data
+        # and not of whatever sequence the upstream happened to return.
+        cleaned.sort(
+            key=lambda item: (
+                -(item["score"] or 0),
+                item["source"]["title"] or "",
+            )
+        )
+
+        # Before the truncation, not after: the corpus stores the same
+        # publication under more than one document name, so a query routinely
+        # retrieves a passage twice. Deduplicating afterwards would hand back
+        # fewer results than asked for; doing it here lets the next-best
+        # distinct passage take the freed slot.
+        cleaned = dedupe(cleaned)[:max_results]
 
         self._attach_download_urls(cleaned)
 

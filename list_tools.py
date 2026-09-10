@@ -1,81 +1,45 @@
+"""List the tools the AgentCore Gateway currently exports.
+
+    python3 list_tools.py          # names, titles and required arguments
+    python3 list_tools.py --raw    # the full tools/list result
+
+This is the check to run after `./infra/create-gateway.sh`: the gateway serves a
+static copy of the server's tool catalogue, generated at deploy time, so a tool
+added to mcp-gateway/tools/ is not visible here until that script has run --
+deploying the Lambda alone is not enough. An empty list, or one missing a tool
+you just deployed, means the second half of the deploy did not happen.
+"""
+
 import json
-import os
+import sys
 
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-CLIENT_ID = os.environ["CLIENT_ID"]
-CLIENT_SECRET = os.environ["CLIENT_SECRET"]
-
-TOKEN_URL = (
-    "https://my-domain-ajdb98m7.auth.eu-central-1.amazoncognito.com/"
-    "oauth2/token"
-)
-
-GATEWAY_URL = (
-    "https://sandbox-bfe-public-kb-8thmswsvit."
-    "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
-)
-
-MCP_PROTOCOL_VERSION = "2026-07-28"
+from gateway_client import call, fetch_access_token
 
 
-def fetch_access_token():
-    response = requests.post(
-        TOKEN_URL,
-        data={
-            "grant_type": "client_credentials",
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()["access_token"]
+def main() -> None:
+    token = fetch_access_token()
+    result = call("tools/list", {}, token, timeout=60)
 
+    if "--raw" in sys.argv:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
 
-def list_tools(gateway_url, access_token):
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-        "Mcp-Method": "tools/list",
-    }
+    tools = result.get("tools", [])
+    if not tools:
+        print("the gateway exports no tools -- run ./infra/create-gateway.sh")
+        return
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "list-tools-request",
-        "method": "tools/list",
-        "params": {
-            "_meta": {
-                "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-                "io.modelcontextprotocol/clientInfo": {
-                    "name": "bfe-hackathon-test",
-                    "version": "1.0.0",
-                },
-                "io.modelcontextprotocol/clientCapabilities": {},
-            }
-        },
-    }
+    for tool in tools:
+        schema = tool.get("inputSchema", {})
+        required = schema.get("required", [])
+        optional = [k for k in schema.get("properties", {}) if k not in required]
+        print(f"\n{tool['name']}")
+        if tool.get("title"):
+            print(f"  {tool['title']}")
+        print(f"  required: {', '.join(required) or '(none)'}")
+        print(f"  optional: {', '.join(optional) or '(none)'}")
 
-    response = requests.post(
-        gateway_url,
-        headers=headers,
-        json=payload,
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def main():
-    access_token = fetch_access_token()
-    result = list_tools(GATEWAY_URL, access_token)
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(f"\n{len(tools)} tool(s)")
 
 
 if __name__ == "__main__":
