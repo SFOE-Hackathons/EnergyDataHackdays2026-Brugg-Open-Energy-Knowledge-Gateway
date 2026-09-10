@@ -11,6 +11,8 @@ import time
 import urllib.parse
 from typing import Any
 
+from source_links import load_source_map, rewrite_sources
+
 
 # Deployment-specific identifiers are read from the environment so that no
 # credentials are committed to this public repository. See mcp/README.md.
@@ -32,6 +34,7 @@ TOKEN_EXPIRY_MARGIN_SEC = 60.0
 TOKEN_DEFAULT_TTL_SEC = 3600.0
 
 _token_cache: tuple[str, float] | None = None
+_source_map = load_source_map()
 
 
 def run_curl(args: list[str], *, body: str) -> dict[str, Any]:
@@ -288,7 +291,8 @@ def handle(message: dict[str, Any]) -> None:
         if not isinstance(question, str) or not question.strip():
             error(request_id, -32602, "retrievalQuery.text must be a non-empty string")
             return
-        result(request_id, call_gateway(question.strip(), request_id))
+        gateway_result = call_gateway(question.strip(), request_id)
+        result(request_id, rewrite_sources(gateway_result, _source_map))
         return
 
     if method in {"resources/list", "resources/templates/list"}:
