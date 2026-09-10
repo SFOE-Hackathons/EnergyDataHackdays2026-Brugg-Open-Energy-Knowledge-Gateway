@@ -11,11 +11,9 @@ import json
 
 INDEX = "index"
 FULL = "full"
-DETAIL_LEVELS = (INDEX, FULL)
 
 CORE = "core"
 ALL = "all"
-SOURCE_FIELD_SETS = (CORE, ALL)
 
 # Kept at source_fields=CORE, in the order a reader wants them. Measured over
 # 666 source records spanning 160 documents:

@@ -26,7 +26,7 @@
 # WHY THERE IS NO ENDPOINT. This function has no Function URL and no HTTP route
 # of any kind. The gateway calls it through the Lambda Invoke API, handing the
 # tool's arguments over as the invocation event; the public face of the service
-# is the gateway's Cognito-gated MCP endpoint, not anything here.
+# is the gateway's open MCP endpoint, not anything here.
 #
 # That is the fourth design, and the three it replaced are worth recording so
 # nobody re-derives them:
@@ -62,7 +62,7 @@
 #      the same endpoint. See mcp-gateway/lambda_handler.py.
 #
 # Any URL on this function is therefore not just unused but a second entry
-# point that skips the gateway's authorizer, which is why the deploy deletes
+# point that skips the gateway entirely, which is why the deploy deletes
 # one if it finds it rather than leaving it switched off.
 #
 # WHY THERE ARE NO SECRETS HERE ANY MORE. An earlier revision read CLIENT_ID
@@ -163,7 +163,7 @@ TIMEOUT_SECONDS=60
 # ~0.07. The function is I/O-bound in steady state (it waits on Bedrock), so
 # more CPU does NOT shorten a request, and since billing is per GB-second,
 # over-provisioning multiplies the bill for identical wall clock. But cold
-# start is CPU-bound: unpacking a ~204 MB image and importing fastmcp/pydantic/
+# start is CPU-bound: unpacking a ~204 MB image and importing mcp/pydantic/
 # starlette/boto3 is real work, and starving it shows up as a slow first
 # request.
 #
@@ -192,10 +192,10 @@ MEMORY_MB="${MEMORY_MB:-512}"
 # Lambda's default account concurrency is 1000. Without this cap AWS will
 # autoscale, on a caller's behalf, to as many as 1000 concurrent invocations
 # x 5 upstream retrievals = 5000 concurrent Bedrock calls, and the first sign
-# of it is the bill. The gateway's Cognito authorizer means a caller has to
-# hold credentials to get that far, which is a real improvement over the open
-# endpoint this cap was originally written for -- but credentials get shared,
-# and one badly-written agent in a retry loop needs no malice at all.
+# of it is the bill. The gateway in front is open -- no caller identity, so
+# there is no per-caller brake and no way to tell a runaway client from a
+# popular launch -- which makes this cap the only thing standing between a
+# retry loop and that bill. One badly-written agent needs no malice at all.
 #
 # Reserved concurrency is a hard, enforced ceiling: at most this many requests
 # run at once, and everything beyond is throttled immediately
@@ -279,7 +279,7 @@ if [[ "${1:-}" == "--show" ]]; then
   echo "  reserved concurrency  : $(lambda_ get-function-concurrency \
         --function-name "$NAME" --output json | jqp 'print(d.get("ReservedConcurrentExecutions","(unset -- UNCAPPED)"))')"
   # Reported because a URL here is a finding, not a feature: it would be a
-  # second entry point that bypasses the gateway's authorizer. A deploy run
+  # second entry point that bypasses the gateway. A deploy run
   # removes it; --show is how you notice one reappeared.
   echo "  function url          : $(function_url_or_none)"
   echo "  knowledge base        : $KNOWLEDGE_BASE_ID"
@@ -497,8 +497,8 @@ lambda_ put-function-concurrency --function-name "$NAME" \
 
 # The gateway invokes this function through the Lambda Invoke API, so there is
 # nothing for a URL to serve. Any URL left over from the previous design is a
-# second, HTTP-reachable entry point that bypasses the gateway's Cognito
-# authorizer, so it is deleted rather than left switched off.
+# second, HTTP-reachable entry point that bypasses the gateway, so it is
+# deleted rather than left switched off.
 if [[ -n "$(function_url)" ]]; then
   note "deleting the obsolete function URL (the gateway no longer uses HTTP)"
   lambda_ delete-function-url-config --function-name "$NAME" >/dev/null
@@ -506,7 +506,7 @@ fi
 
 # Three dead grants from three superseded designs: anonymous access, CloudFront
 # in front of the URL, and the gateway invoking the URL directly. Each would be
-# a way in that skips the authorizer, so none is left to rot.
+# a way in that skips the gateway, so none is left to rot.
 #
 # Matched on the exact Sid rather than with `grep -q`. Substring matching looks
 # equivalent and is not: "AllowAgentCoreGateway" is a prefix of the statement

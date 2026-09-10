@@ -635,7 +635,7 @@ Lambda ties CPU to memory linearly, with a full vCPU at 1769 MB. In steady
 state this function is I/O-bound — it waits on the gateway — so more CPU does
 not shorten a request, and billing is per GB-second, meaning over-provisioning
 multiplies the bill for identical wall clock. But **cold start is CPU-bound**:
-unpacking a ~204 MB image and importing `fastmcp`/`pydantic`/`starlette` is
+unpacking a ~204 MB image and importing `mcp`/`pydantic`/`starlette` is
 real work. Steady state wants 128 MB; cold start wants more.
 
 Settle it with data on the first deploy rather than guessing twice — every
@@ -713,6 +713,7 @@ server.py           entrypoint: wires config → client → tools → MCPServer
 lambda_handler.py   Lambda entrypoint: the AgentCore Gateway target contract
 tool_schema.py      generates the gateway's static tool catalogue from the above
 dev_run.py          local HTTP server
+client_example.py   example MCP-SDK client against the local HTTP server
 ```
 
 ### Adding a tool

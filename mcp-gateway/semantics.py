@@ -278,9 +278,6 @@ _VISUAL_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 
-EXTRACTION_METHODS = ("table", "chart_label", "chart_visual_read")
-
-
 def classify_extraction_method(text: str, precision: str | None = None) -> str | None:
     """Say how a figure's numbers were obtained, or ``None`` if unclear.
 
