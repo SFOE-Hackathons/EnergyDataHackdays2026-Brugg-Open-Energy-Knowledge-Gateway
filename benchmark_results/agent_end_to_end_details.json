@@ -1,0 +1,1794 @@
+{
+  "benchmark": "SFOE agent end-to-end benchmark",
+  "production_model": "nvidia.nemotron-super-3-120b",
+  "judge_model": "qwen.qwen3-235b-a22b-2507-v1:0",
+  "semantic_weights": {
+    "groundedness": 0.25,
+    "citation_correctness": 0.2,
+    "completeness": 0.15,
+    "numerical_accuracy": 0.1,
+    "uncertainty_handling": 0.1,
+    "abstention_quality": 0.1,
+    "relevance": 0.05,
+    "language_quality": 0.05
+  },
+  "final_weights": {
+    "semantic_quality": 0.8,
+    "routing_correctness": 0.1,
+    "mcp_success": 0.05,
+    "latency": 0.05
+  },
+  "question_count": 15,
+  "summary": [
+    {
+      "group": "OVERALL",
+      "question_count": 15,
+      "end_to_end_score": 0.9123,
+      "semantic_quality": 0.9053,
+      "routing_accuracy": 1.0,
+      "mcp_success_rate": 1.0,
+      "full_pipeline_success_rate": 1.0,
+      "avg_total_latency_seconds": 13.7659,
+      "avg_judge_latency_seconds": 13.7502,
+      "groundedness": 4.4,
+      "citation_correctness": 4.467,
+      "completeness": 4.667,
+      "numerical_accuracy": 4.4,
+      "uncertainty_handling": 4.067,
+      "abstention_quality": 4.933,
+      "relevance": 4.867,
+      "language_quality": 5.0,
+      "unsupported_claims": 3,
+      "citation_issues": 5,
+      "uncertainty_issues": 8
+    },
+    {
+      "group": "SEARCH",
+      "question_count": 5,
+      "end_to_end_score": 0.9008,
+      "semantic_quality": 0.896,
+      "routing_accuracy": 1.0,
+      "mcp_success_rate": 1.0,
+      "full_pipeline_success_rate": 1.0,
+      "avg_total_latency_seconds": 27.4356,
+      "avg_judge_latency_seconds": 10.6935,
+      "groundedness": 4.4,
+      "citation_correctness": 4.2,
+      "completeness": 4.6,
+      "numerical_accuracy": 4.4,
+      "uncertainty_handling": 4.2,
+      "abstention_quality": 5.0,
+      "relevance": 4.8,
+      "language_quality": 5.0,
+      "unsupported_claims": 1,
+      "citation_issues": 1,
+      "uncertainty_issues": 1
+    },
+    {
+      "group": "TIMELINE",
+      "question_count": 5,
+      "end_to_end_score": 0.8956,
+      "semantic_quality": 0.882,
+      "routing_accuracy": 1.0,
+      "mcp_success_rate": 1.0,
+      "full_pipeline_success_rate": 1.0,
+      "avg_total_latency_seconds": 6.2769,
+      "avg_judge_latency_seconds": 11.2557,
+      "groundedness": 4.2,
+      "citation_correctness": 4.4,
+      "completeness": 4.6,
+      "numerical_accuracy": 4.2,
+      "uncertainty_handling": 4.0,
+      "abstention_quality": 4.8,
+      "relevance": 4.8,
+      "language_quality": 5.0,
+      "unsupported_claims": 2,
+      "citation_issues": 3,
+      "uncertainty_issues": 4
+    },
+    {
+      "group": "CHART",
+      "question_count": 5,
+      "end_to_end_score": 0.9404,
+      "semantic_quality": 0.938,
+      "routing_accuracy": 1.0,
+      "mcp_success_rate": 1.0,
+      "full_pipeline_success_rate": 1.0,
+      "avg_total_latency_seconds": 7.5853,
+      "avg_judge_latency_seconds": 19.3014,
+      "groundedness": 4.6,
+      "citation_correctness": 4.8,
+      "completeness": 4.8,
+      "numerical_accuracy": 4.6,
+      "uncertainty_handling": 4.0,
+      "abstention_quality": 5.0,
+      "relevance": 5.0,
+      "language_quality": 5.0,
+      "unsupported_claims": 0,
+      "citation_issues": 1,
+      "uncertainty_issues": 3
+    }
+  ],
+  "records": [
+    {
+      "id": "E2E_SEARCH_01",
+      "group": "SEARCH",
+      "language": "en",
+      "category": "general",
+      "question": "What role does hydropower play in Switzerland?",
+      "expected_tool": "bfe-energy___search_energy_knowledge",
+      "selected_tool": "bfe-energy___search_energy_knowledge",
+      "routing_correct": true,
+      "routing_reason": "The user asks about the role of hydropower in Switzerland, which is a qualitative, conceptual question about importance and function—not a request for numeric time series or chart data. The general semantic search tool is best suited for such explanatory inquiries.",
+      "arguments": {
+        "query": "role of hydropower in Switzerland",
+        "max_results": 10
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Hydropower is the dominant domestic energy source in Switzerland, particularly in summer when precipitation and snowmelt are highest [1]. In 2023, hydropower (both run-of-river and storage) comprised about 53% of domestic electricity production [2]. During winter months, Switzerland relies significantly on net imports due to reduced hydropower generation [1]. Hydropower also supports Switzerland's role as a net exporter of electricity and contributes to European system support [1].",
+      "answer": "Hydropower is the dominant domestic energy source in Switzerland, particularly in summer when precipitation and snowmelt are highest [1]. In 2023, hydropower (both run-of-river and storage) comprised about 53% of domestic electricity production [2]. During winter months, Switzerland relies significantly on net imports due to reduced hydropower generation [1]. Hydropower also supports Switzerland's role as a net exporter of electricity and contributes to European system support [1].",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2020-01-31_modellierung-der-erzeugungs-und-systemkapazitat-(system-adequacy)-in-der-schweiz-im-bereich-strom-20.pdf",
+          "published_at": "2020-01-31",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/10020",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "source_id": "s2",
+          "title": "2024-06-14_schweizerische-elektrizitatsstatistik-2023.pdf",
+          "published_at": "2024-06-14",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11769",
+          "original_number": 2
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "Hydropower is the dominant domestic energy source in Switzerland, particularly in summer when precipitation and snowmelt are highest",
+            "classification": "directly_supported",
+            "reason": "This is directly supported by [1], which states that hydropower is the dominant domestic energy source and especially high in summer due to precipitation and snowmelt."
+          },
+          {
+            "claim": "In 2023, hydropower (both run-of-river and storage) comprised about 53% of domestic electricity production",
+            "classification": "directly_supported",
+            "reason": "This is explicitly stated in [2], which reports that hydropower made up about 53% of domestic production in 2023, with run-of-river at 26% and storage at 27%."
+          },
+          {
+            "claim": "During winter months, Switzerland relies significantly on net imports due to reduced hydropower generation",
+            "classification": "directly_supported",
+            "reason": "This is supported by [1] and [5], which both describe increased import dependency in winter due to lower hydropower generation from reduced water availability."
+          },
+          {
+            "claim": "Hydropower also supports Switzerland's role as a net exporter of electricity and contributes to European system support",
+            "classification": "partially_supported",
+            "reason": "[1] mentions hydropower's role in European system support and export capabilities, and [3] notes Switzerland's role as a net exporter in winter, but the direct causal link between hydropower and net export status is implied rather than explicitly confirmed for 2023."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "All factual claims are well-grounded in the evidence",
+          "Citations are correctly matched to claims",
+          "Numerical values are accurately reported",
+          "Answer is complete, relevant, and clearly written"
+        ],
+        "summary": "The candidate answer is excellent: it accurately summarizes the role of hydropower in Switzerland using directly supported facts from the evidence, cites sources correctly, and remains within the bounds of the provided data without overstatement."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 0.2,
+      "end_to_end_score": 0.96,
+      "total_latency_seconds": 97.5905,
+      "judge_latency_seconds": 7.0377,
+      "error": null
+    },
+    {
+      "id": "E2E_SEARCH_02",
+      "group": "SEARCH",
+      "language": "de",
+      "category": "policy",
+      "question": "Welche Rolle spielt Wasserstoff in der Schweizer Energiepolitik?",
+      "expected_tool": "bfe-energy___search_energy_knowledge",
+      "selected_tool": "bfe-energy___search_energy_knowledge",
+      "routing_correct": true,
+      "routing_reason": "The user asks about the role of hydrogen in Swiss energy policy, which is a qualitative, conceptual question best answered by searching relevant passages in SFOE publications. No specific metric, time series, or chart data is requested, so the general semantic search tool is most appropriate.",
+      "arguments": {
+        "query": "Welche Rolle spielt Wasserstoff in der Schweizer Energiepolitik?"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Wasserstoff spielt in der Schweizer Energiepolitik eine wichtige Rolle als flexibler Energieträger zur Erreichung der Klimaziele, insbesondere durch die Unterstützung der Sektorenkopplung und die Dekarbonisierung schwer zu dekarbonisierender Sektoren wie Industrie, Schwerverkehr, Luft- und Schiffsverkehr [2]. Er kann fossile Energien ersetzen und zur Speicherung erneuerbarer Energien beitragen, wobei grüner Wasserstoff aus erneuerbaren Energien priorisiert wird [2]. Die Schweizer Wasserstoffstrategie zeigt auf, welche Rolle Wasserstoff bis 2035 und 2050 in der Energie- und Klimapolitik einnehmen kann und legt Massnahmen für den Aufbau eines Wasserstoffmarktes und die Anbindung an die europäische Infrastruktur fest [1]. Wasserstoff wird als bedeutender Baustein auf dem Weg zur Klimaneutralität bis 2050 angesehen [2]. Zudem kann er als Energiespeicher zur Integration fluktuierender erneuerbarer Energien ins Energiesystem beitragen [3]. Heute macht Wasserstoff jedoch noch einen sehr kleinen Anteil der Schweizer Energieversorgung aus und wird hauptsächlich aus Erdgas hergestellt [2].",
+      "answer": "Wasserstoff spielt in der Schweizer Energiepolitik eine wichtige Rolle als flexibler Energieträger zur Erreichung der Klimaziele, insbesondere durch die Unterstützung der Sektorenkopplung und die Dekarbonisierung schwer zu dekarbonisierender Sektoren wie Industrie, Schwerverkehr, Luft- und Schiffsverkehr [1]. Er kann fossile Energien ersetzen und zur Speicherung erneuerbarer Energien beitragen, wobei grüner Wasserstoff aus erneuerbaren Energien priorisiert wird [1]. Die Schweizer Wasserstoffstrategie zeigt auf, welche Rolle Wasserstoff bis 2035 und 2050 in der Energie- und Klimapolitik einnehmen kann und legt Massnahmen für den Aufbau eines Wasserstoffmarktes und die Anbindung an die europäische Infrastruktur fest [2]. Wasserstoff wird als bedeutender Baustein auf dem Weg zur Klimaneutralität bis 2050 angesehen [1]. Zudem kann er als Energiespeicher zur Integration fluktuierender erneuerbarer Energien ins Energiesystem beitragen [3]. Heute macht Wasserstoff jedoch noch einen sehr kleinen Anteil der Schweizer Energieversorgung aus und wird hauptsächlich aus Erdgas hergestellt [1].",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s2",
+          "title": "2022-09-27_thesen-zur-kunftigen-bedeutung-von-wasserstoff-in-der-schweizer-energieversorgung.pdf",
+          "published_at": "2022-09-27",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11103",
+          "original_number": 2
+        },
+        {
+          "number": 2,
+          "source_id": "s1",
+          "title": "2024-12-13_wasserstoffstrategie-fur-die-schweiz.pdf",
+          "published_at": "2024-12-13",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11989",
+          "original_number": 1
+        },
+        {
+          "number": 3,
+          "source_id": "s3",
+          "title": "2023-11-15_wasserstoff-auslegeordnung-und-handlungsoptionen-fur-die-schweiz.pdf",
+          "published_at": "2023-11-15",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11595",
+          "original_number": 3
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "Wasserstoff spielt in der Schweizer Energiepolitik eine wichtige Rolle als flexibler Energieträger zur Erreichung der Klimaziele",
+            "classification": "directly_supported",
+            "reason": "Die Quelle [2] beschreibt Wasserstoff als 'flexiblen Energieträger' und 'entscheidende Rolle' bei der Nutzung erneuerbarer Energien und Dekarbonisierung. [1] zeigt, dass Wasserstoff eine strategische Rolle bis 2035 und 2050 einnehmen soll."
+          },
+          {
+            "claim": "insbesondere durch die Unterstützung der Sektorenkopplung",
+            "classification": "directly_supported",
+            "reason": "Quelle [2] und [3] erwähnen explizit, dass Wasserstoff die Sektorenkopplung als zentrales Element einer dekarbonisierten Energiewirtschaft ermöglichen kann."
+          },
+          {
+            "claim": "und die Dekarbonisierung schwer zu dekarbonisierender Sektoren wie Industrie, Schwerverkehr, Luft- und Schiffsverkehr",
+            "classification": "directly_supported",
+            "reason": "Quelle [2] nennt explizit Langstrecken-, Schwer-, Flug- und Schiffsverkehr sowie Industrie als Einsatzbereiche. [3] bestätigt die Rolle in schwer zu dekarbonisierenden Sektoren."
+          },
+          {
+            "claim": "Er kann fossile Energien ersetzen und zur Speicherung erneuerbarer Energien beitragen",
+            "classification": "directly_supported",
+            "reason": "Quelle [2] sagt, dass Wasserstoff fossile Energien in schwer zu dekarbonisierenden Sektoren ersetzen kann und zur Speicherung erneuerbarer Energien genutzt werden kann."
+          },
+          {
+            "claim": "wobei grüner Wasserstoff aus erneuerbaren Energien priorisiert wird",
+            "classification": "directly_supported",
+            "reason": "Quelle [2] betont den Einsatz von 'grünem' Wasserstoff aus erneuerbaren Energien und dass er in Bereichen mit wenigen Alternativen zum Ersatz von 'grauem' Wasserstoff priorisiert werden soll."
+          },
+          {
+            "claim": "Die Schweizer Wasserstoffstrategie zeigt auf, welche Rolle Wasserstoff bis 2035 und 2050 in der Energie- und Klimapolitik einnehmen kann",
+            "classification": "directly_supported",
+            "reason": "Quelle [1] beschreibt explizit, dass die Strategie die Rolle von Wasserstoff bis 2035 und 2050 aufzeigt."
+          },
+          {
+            "claim": "und legt Massnahmen für den Aufbau eines Wasserstoffmarktes und die Anbindung an die europäische Infrastruktur fest",
+            "classification": "directly_supported",
+            "reason": "Quelle [1] erwähnt, dass die Strategie Massnahmen zum Aufbau eines Wasserstoffmarktes und zur Anbindung an die europäische Wasserstofftransportinfrastruktur unterstützt."
+          },
+          {
+            "claim": "Wasserstoff wird als bedeutender Baustein auf dem Weg zur Klimaneutralität bis 2050 angesehen",
+            "classification": "directly_supported",
+            "reason": "Quelle [2] sagt explizit: 'Wasserstoff wird aber ein bedeutender Baustein auf dem Weg zur Klimaneutralität sein.'"
+          },
+          {
+            "claim": "Zudem kann er als Energiespeicher zur Integration fluktuierender erneuerbarer Energien ins Energiesystem beitragen",
+            "classification": "directly_supported",
+            "reason": "Quelle [3] besagt, dass Wasserstoff als Energiespeicher zur Integration fluktuierender erneuerbarer Energien beitragen kann."
+          },
+          {
+            "claim": "Heute macht Wasserstoff jedoch noch einen sehr kleinen Anteil der Schweizer Energieversorgung aus und wird hauptsächlich aus Erdgas hergestellt",
+            "classification": "directly_supported",
+            "reason": "Quelle [2] bestätigt: 'Heute macht Wasserstoff in der Schweiz jedoch noch einen sehr kleinen Anteil der Energieversorgung aus. Er wird hauptsächlich als Rohstoff in der Erdölraffinerie und im Industrie- und Chemiesektor verwendet und aus Erdgas hergestellt.'"
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "Alle Aussagen sind direkt durch die MCP-Evidenz gestützt.",
+          "Zitierungen sind korrekt und passen exakt zu den behaupteten Inhalten.",
+          "Die Antwort ist vollständig und behandelt alle relevanten Aspekte der Frage.",
+          "Keine numerischen oder zeitlichen Ungenauigkeiten vorhanden.",
+          "Unsicherheiten aus der Quelle werden nicht überinterpretiert.",
+          "Die Antwort ist fokussiert, klar und in der geforderten Sprache (Deutsch)."
+        ],
+        "summary": "Die Antwort ist hervorragend: vollständig, präzise, zitiergenau und vollständig auf der MCP-Evidenz basierend. Alle behaupteten Fakten sind direkt belegbar, und es gibt keine Erfindungen, Überinterpretationen oder Zitierfehler."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 0.4,
+      "end_to_end_score": 0.97,
+      "total_latency_seconds": 25.3081,
+      "judge_latency_seconds": 16.4134,
+      "error": null
+    },
+    {
+      "id": "E2E_SEARCH_03",
+      "group": "SEARCH",
+      "language": "fr",
+      "category": "policy",
+      "question": "Quels sont les objectifs suisses en matière d'énergie renouvelable ?",
+      "expected_tool": "bfe-energy___search_energy_knowledge",
+      "selected_tool": "bfe-energy___search_energy_knowledge",
+      "routing_correct": true,
+      "routing_reason": "The user is asking about Swiss renewable energy objectives, which is a qualitative, conceptual question about policy goals. This matches the guidance to prefer the general semantic search tool for questions about policy, explanation, or concept. The search tool will retrieve relevant passages from SFOE publications that discuss Switzerland's renewable energy targets.",
+      "arguments": {
+        "query": "objectifs suisses en matière d'énergie renouvelable",
+        "max_results": 10
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "La Suisse vise à atteindre une production d'électricité provenant des nouvelles énergies renouvelables de 14,5 TWh d'ici 2035, dans le cadre de sa stratégie énergétique [3]. Elle vise également à réduire sa consommation énergétique de 43 % et sa consommation d'électricité par habitant de 13 % d'ici 2035 [3]. Pour atteindre ces objectifs, une transformation du système énergétique est nécessaire, passant des énergies fossiles aux énergies renouvelables, avec un soutien politique incluant des instruments de promotion des énergies renouvelables et de l'efficacité énergétique [1].",
+      "answer": "La Suisse vise à atteindre une production d'électricité provenant des nouvelles énergies renouvelables de 14,5 TWh d'ici 2035, dans le cadre de sa stratégie énergétique [1]. Elle vise également à réduire sa consommation énergétique de 43 % et sa consommation d'électricité par habitant de 13 % d'ici 2035 [1]. Pour atteindre ces objectifs, une transformation du système énergétique est nécessaire, passant des énergies fossiles aux énergies renouvelables, avec un soutien politique incluant des instruments de promotion des énergies renouvelables et de l'efficacité énergétique [2].",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s3",
+          "title": "2021-08-04_fakten-zur-energie-nr-5-energiestrategie-2050.pdf",
+          "published_at": "2021-08-04",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/7977",
+          "original_number": 3
+        },
+        {
+          "number": 2,
+          "source_id": "s1",
+          "title": "2020-09-30_arbeitsplatzeffekte-durch-forderung-erneuerbarer-energien-und-der-energieeffizienz.pdf",
+          "published_at": "2020-09-30",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11265",
+          "original_number": 1
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "La Suisse vise à atteindre une production d'électricité provenant des nouvelles énergies renouvelables de 14,5 TWh d'ici 2035",
+            "classification": "directly_supported",
+            "reason": "Le document [3] indique clairement que l'objectif de production d'électricité à partir de nouvelles énergies renouvelables est de 14,5 TWh, avec une cible pour 2035."
+          },
+          {
+            "claim": "dans le cadre de sa stratégie énergétique [3]",
+            "classification": "directly_supported",
+            "reason": "Le document [3] s'intitule 'Fakten zur Energie Nr. 5: Energiestrategie 2050' et présente les objectifs dans ce cadre, ce qui justifie la référence à la stratégie énergétique."
+          },
+          {
+            "claim": "Elle vise également à réduire sa consommation énergétique de 43 % et sa consommation d'électricité par habitant de 13 % d'ici 2035 [3]",
+            "classification": "directly_supported",
+            "reason": "Le document [3] mentionne explicitement ces deux pourcentages (43 % et 13 %) avec une direction de diminution et une cible pour 2035, dans le tableau des métriques."
+          },
+          {
+            "claim": "Pour atteindre ces objectifs, une transformation du système énergétique est nécessaire, passant des énergies fossiles aux énergies renouvelables",
+            "classification": "directly_supported",
+            "reason": "Le document [1] indique qu'une transformation importante du système énergétique est nécessaire, notamment un passage des sources fossiles aux sources renouvelables."
+          },
+          {
+            "claim": "avec un soutien politique incluant des instruments de promotion des énergies renouvelables et de l'efficacité énergétique [1]",
+            "classification": "directly_supported",
+            "reason": "Le document [1] mentionne que cette transformation est mise en œuvre à l'aide d'instruments politiques, y compris des instruments de soutien pour promouvoir les énergies renouvelables et l'efficacité énergétique."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "Tous les faits sont correctement appuyés par les sources fournies.",
+          "Les citations correspondent exactement aux affirmations auxquelles elles sont rattachées.",
+          "L'objectif principal de la question est pleinement couvert : les objectifs suisses en matière d'énergie renouvelable.",
+          "Les valeurs numériques, unités et années sont fidèles aux données sources.",
+          "Aucune extrapolation ou invention n'est présente ; l'incertitude n'est pas un problème ici car les données sont présentées comme des objectifs clairs.",
+          "La réponse est concise, pertinente et en français, comme demandé."
+        ],
+        "summary": "La réponse est excellente : elle est entièrement fondée sur les preuves fournies, bien citée, complète, numériquement précise et formulée dans la langue demandée. Aucun défaut n'est détecté."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 1.0,
+      "end_to_end_score": 1.0,
+      "total_latency_seconds": 4.8894,
+      "judge_latency_seconds": 10.8905,
+      "error": null
+    },
+    {
+      "id": "E2E_SEARCH_04",
+      "group": "SEARCH",
+      "language": "de",
+      "category": "source_precision",
+      "question": "Was genau bedeutet die häufig genannte Zahl von rund 58 Prozent für die Schweizer Wasserkraft im Jahr 2020? Bezieht sie sich auf Stromproduktion oder Strombedarf?",
+      "expected_tool": "bfe-energy___search_energy_knowledge",
+      "selected_tool": "bfe-energy___search_energy_knowledge",
+      "routing_correct": true,
+      "routing_reason": "The user asks for the meaning of a specific percentage figure (58%) related to Swiss hydropower in 2020, specifically whether it refers to electricity production or demand. This is a qualitative/conceptual question about the interpretation of a statistic, best addressed by searching relevant passages in SFOE publications that explain the context and meaning of this figure.",
+      "arguments": {
+        "query": "58 Prozent Schweizer Wasserkraft 2020 Stromproduktion Strombedarf Bedeutung",
+        "max_results": 10
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Die Zahl von rund 58 Prozent bezieht sich auf die Stromproduktion in der Schweiz im Jahr 2020, da sie den Anteil der Wasserkraft an der gesamten Stromerzeugung angibt. [1]",
+      "answer": "Die Zahl von rund 58 Prozent bezieht sich auf die Stromproduktion in der Schweiz im Jahr 2020, da sie den Anteil der Wasserkraft an der gesamten Stromerzeugung angibt. [1]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2022-03-10_die-neue-rolle-der-wasserkraft.pdf",
+          "published_at": "2022-03-10",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/10822",
+          "original_number": 1
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "Die Zahl von rund 58 Prozent bezieht sich auf die Stromproduktion in der Schweiz im Jahr 2020",
+            "classification": "partially_supported",
+            "reason": "Die MCP-Evidenz enthält widersprüchliche Angaben: Ein Resultat ([1]) besagt, dass die Wasserkraft 58 Prozent des Strombedarfs deckte, während ein anderes ([2]) und weitere ([3], [4]) klar auf die Stromproduktion verweisen. Da die Evidenz nicht eindeutig ist und sowohl 'Strombedarf' als auch 'Stromproduktion' genannt wird, wird die Behauptung, es beziehe sich eindeutig auf die Produktion, nur teilweise unterstützt."
+          },
+          {
+            "claim": "sie gibt den Anteil der Wasserkraft an der gesamten Stromerzeugung an",
+            "classification": "partially_supported",
+            "reason": "Mehrere Quellen ([2], [3], [4]) beziehen die 58-Prozent-Zahl auf die Stromproduktion (Erzeugung), aber Quelle [1] nennt explizit den Strombedarf. Da die Evidenz uneinheitlich ist, wird diese präzise Behauptung über den Bezug auf die Erzeugung nur teilweise durch die Gesamtevidenz gestützt."
+          },
+          {
+            "claim": "[1]",
+            "classification": "unsupported",
+            "reason": "Die Quelle [1] (die PDF-Datei vom 10. März 2022) besagt in ihrem Text explizit, dass die Wasserkraft im Jahr 2020 '58 Prozent des Strombedarfs' deckte, nicht der Stromproduktion. Daher unterstützt [1] die Behauptung im Antworttext nicht – im Gegenteil, sie widerspricht ihr direkt."
+          }
+        ],
+        "scores": {
+          "groundedness": 2,
+          "citation_correctness": 1,
+          "completeness": 3,
+          "numerical_accuracy": 2,
+          "uncertainty_handling": 1,
+          "abstention_quality": 5,
+          "relevance": 4,
+          "language_quality": 5
+        },
+        "unsupported_claims": [
+          "Die Zahl von rund 58 Prozent bezieht sich auf die Stromproduktion in der Schweiz im Jahr 2020, da sie den Anteil der Wasserkraft an der gesamten Stromerzeugung angibt."
+        ],
+        "citation_issues": [
+          "Die Zitierung [1] ist inkorrekt, da Quelle [1] angibt, dass die 58 Prozent den Strombedarf decken, nicht die Stromproduktion. Die Zitierung wird verwendet, um eine Behauptung zu stützen, die der Quelle widerspricht."
+        ],
+        "uncertainty_issues": [
+          "Die Antwort ignoriert die Uneinheitlichkeit in den Quellen bezüglich 'Produktion' vs. 'Bedarf' und präsentiert eine klare Zuordnung zur Produktion, obwohl die Evidenz widersprüchlich ist."
+        ],
+        "strengths": [
+          "Die Antwort ist klar formuliert und in der geforderten Sprache (Deutsch).",
+          "Sie beantwortet die Kernfrage direkt und thematisch relevant."
+        ],
+        "summary": "Die Antwort ist sprachlich klar und thematisch relevant, macht aber eine präzise Behauptung über die Bezugsebene (Produktion), die durch die Evidenz nicht eindeutig gestützt wird. Insbesondere ist die Zitierung [1] falsch, da diese Quelle explizit von 'Strombedarf' spricht. Die Antwort ignoriert die Unsicherheit in den Daten und wird daher in den Dimensionen groundedness, citation_correctness und uncertainty_handling stark abgewertet."
+      },
+      "semantic_quality": 0.48,
+      "latency_score": 1.0,
+      "end_to_end_score": 0.584,
+      "total_latency_seconds": 3.927,
+      "judge_latency_seconds": 11.57,
+      "error": null
+    },
+    {
+      "id": "E2E_SEARCH_05",
+      "group": "SEARCH",
+      "language": "en",
+      "category": "insufficient_evidence",
+      "question": "What was the exact electricity production of every individual hydropower plant in Switzerland in 2024?",
+      "expected_tool": "bfe-energy___search_energy_knowledge",
+      "selected_tool": "bfe-energy___search_energy_knowledge",
+      "routing_correct": true,
+      "routing_reason": "The user asks for exact electricity production values for each individual hydropower plant in Switzerland for a specific year (2024). This is a detailed, granular data request likely found in textual reports or tables within SFOE publications. Since the request is not about a trend over time, a single chart, or a summarized metric, but rather specific plant-level data, a general semantic search is most appropriate to locate relevant passages that may contain such detailed listings or references to plant-specific production data.",
+      "arguments": {
+        "query": "electricity production of every individual hydropower plant in Switzerland 2024",
+        "max_results": 10
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "The available SFOE evidence does not provide the exact electricity production of every individual hydropower plant in Switzerland in 2024. The sources contain aggregated data, such as percentage breakdowns by plant type (e.g., storage and run-of-river hydropower contributing 35.7% and 23.9% of total production, respectively) and trends in hydropower production, but they do not list individual plant-level production figures for 2024. Therefore, the specific requested data is not present in the supplied tool result.",
+      "answer": "The available SFOE evidence does not provide the exact electricity production of every individual hydropower plant in Switzerland in 2024. The sources contain aggregated data, such as percentage breakdowns by plant type (e.g., storage and run-of-river hydropower contributing 35.7% and 23.9% of total production, respectively) and trends in hydropower production, but they do not list individual plant-level production figures for 2024. Therefore, the specific requested data is not present in the supplied tool result.",
+      "sources": [],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "The available SFOE evidence does not provide the exact electricity production of every individual hydropower plant in Switzerland in 2024.",
+            "classification": "directly_supported",
+            "reason": "The MCP evidence includes aggregated data (e.g., by plant type or size categories) but contains no list or dataset of individual hydropower plant production figures for 2024."
+          },
+          {
+            "claim": "The sources contain aggregated data, such as percentage breakdowns by plant type (e.g., storage and run-of-river hydropower contributing 35.7% and 23.9% of total production, respectively).",
+            "classification": "directly_supported",
+            "reason": "Result [1] explicitly provides a percentage breakdown of electricity production in 2024, including 35.7% for Speicherkraftwerke (storage hydropower) and 23.9% for Laufkraftwerke (run-of-river hydropower)."
+          },
+          {
+            "claim": "The sources contain trends in hydropower production.",
+            "classification": "directly_supported",
+            "reason": "Result [3] discusses small hydropower production by size categories and includes visualizations of production levels and potential, indicating trend data rather than individual plant outputs."
+          },
+          {
+            "claim": "The specific requested data is not present in the supplied tool result.",
+            "classification": "directly_supported",
+            "reason": "The question asks for exact production values of every individual hydropower plant in 2024, and no result provides such a granular dataset."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "Accurately identifies the absence of required data in the evidence.",
+          "Correctly summarizes the level of detail present in the sources (aggregated by type, not individual plants).",
+          "Maintains strict adherence to the evidence without speculation.",
+          "Uses clear and precise language in English as requested."
+        ],
+        "summary": "The candidate answer correctly and fully abstains from providing unsupported data, accurately characterizing the limitations of the evidence. All claims are directly supported by the MCP results, and the response is clear, relevant, and well-grounded."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.99,
+      "total_latency_seconds": 5.463,
+      "judge_latency_seconds": 7.5559,
+      "error": null
+    },
+    {
+      "id": "E2E_TIMELINE_01",
+      "group": "TIMELINE",
+      "language": "en",
+      "category": "historical",
+      "question": "How has photovoltaic production developed from 2020 to 2024?",
+      "expected_tool": "bfe-energy___get_metric_timeline",
+      "selected_tool": "bfe-energy___get_metric_timeline",
+      "routing_correct": true,
+      "routing_reason": "The user asks about the development of photovoltaic production over a specific multi-year range (2020 to 2024), which requires a time series of annual values. The metric timeline tool is designed to retrieve yearly values for a given metric across a defined year range, making it the appropriate choice for tracking evolution over time.",
+      "arguments": {
+        "metric": "solar PV production",
+        "start_year": 2020,
+        "end_year": 2024,
+        "detail": "full"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Based on the SFOE evidence, photovoltaic production in Switzerland developed as follows from 2020 to 2024:\n\n- 2020: 2'599 GWh [4]\n- 2021: 2'842 GWh [4]\n- 2022: 3'858 GWh [5]\n- 2023: 4'624 GWh [4]\n- 2024: 5'961 GWh [6]\n\nThe production showed consistent year-over-year growth, with an acceleration in the growth rate beginning in 2021. [4]",
+      "answer": "Based on the SFOE evidence, photovoltaic production in Switzerland developed as follows from 2020 to 2024:\n\n- 2020: 2'599 GWh [1]\n- 2021: 2'842 GWh [1]\n- 2022: 3'858 GWh [2]\n- 2023: 4'624 GWh [1]\n- 2024: 5'961 GWh [3]\n\nThe production showed consistent year-over-year growth, with an acceleration in the growth rate beginning in 2021. [1]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s5",
+          "title": "2024-07-11_statistik-sonnenenergie.pdf",
+          "published_at": "2024-07-11",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11802",
+          "original_number": 4
+        },
+        {
+          "number": 2,
+          "source_id": "s6",
+          "title": "2024-07-01_solarbildung-schweiz-strategie-und-umsetzung-20242030.pdf",
+          "published_at": "2024-07-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11831",
+          "original_number": 5
+        },
+        {
+          "number": 3,
+          "source_id": "s7",
+          "title": "2025-07-10_statistik-sonnenenergie.pdf",
+          "published_at": "2025-07-10",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12222",
+          "original_number": 6
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "2020: 2'599 GWh [4]",
+            "classification": "directly_supported",
+            "reason": "Source [4] (2024-07-11_statistik-sonnenenergie.pdf) explicitly states that photovoltaic production in 2020 was 2'599 GWh."
+          },
+          {
+            "claim": "2021: 2'842 GWh [4]",
+            "classification": "directly_supported",
+            "reason": "Source [4] confirms that production in 2021 was 2'842 GWh."
+          },
+          {
+            "claim": "2022: 3'858 GWh [5]",
+            "classification": "directly_supported",
+            "reason": "Source [5] (2024-07-01_solarbildung-schweiz-strategie-und-umsetzung-20242030.pdf) states that in 2022, 3'858 GWh were produced by PV systems."
+          },
+          {
+            "claim": "2023: 4'624 GWh [4]",
+            "classification": "directly_supported",
+            "reason": "Source [4] clearly reports 4'624 GWh for 2023, and this is also confirmed in multiple data entries from the same source."
+          },
+          {
+            "claim": "2024: 5'961 GWh [6]",
+            "classification": "directly_supported",
+            "reason": "Source [6] (2025-07-10_statistik-sonnenenergie.pdf) describes a chart showing 5,961 GWh for 2024, and this is the only source providing data for that year."
+          },
+          {
+            "claim": "The production showed consistent year-over-year growth, with an acceleration in the growth rate beginning in 2021. [4]",
+            "classification": "directly_supported",
+            "reason": "Source [4] explicitly notes an acceleration in growth rate beginning in 2021, with significant jumps in 2022 (+1'016 GWh) and 2023 (+766 GWh), supporting the claim of acceleration."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "All numerical values are accurately extracted from the correct sources.",
+          "Citations are correctly matched to the claims they support.",
+          "The answer fully covers the requested timeline from 2020 to 2024.",
+          "The summary observation about accelerating growth is directly supported by the evidence.",
+          "No unsupported inferences or external knowledge is used."
+        ],
+        "summary": "The candidate answer is excellent: it is fully grounded, accurately cited, complete, numerically precise, and faithfully represents the evidence without overstatement. All claims are directly supported by the MCP tool results, and the language is clear and relevant."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.99,
+      "total_latency_seconds": 8.3979,
+      "judge_latency_seconds": 9.1696,
+      "error": null
+    },
+    {
+      "id": "E2E_TIMELINE_02",
+      "group": "TIMELINE",
+      "language": "de",
+      "category": "historical",
+      "question": "Wie hat sich die Photovoltaikproduktion von 2020 bis 2024 entwickelt?",
+      "expected_tool": "bfe-energy___get_metric_timeline",
+      "selected_tool": "bfe-energy___get_metric_timeline",
+      "routing_correct": true,
+      "routing_reason": "The user asks about the development of photovoltaic production over multiple years (2020 to 2024), which is a request for a time series trend. The metric timeline tool is designed to retrieve yearly values for a given metric across a specified year range, making it the best fit for this query.",
+      "arguments": {
+        "metric": "solar PV production",
+        "start_year": 2020,
+        "end_year": 2024,
+        "detail": "full"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Die Photovoltaikproduktion in der Schweiz entwickelte sich von 2020 bis 2024 wie folgt:\n\n- 2020: 2'599 GWh [4]  \n- 2021: 2'842 GWh [4]  \n- 2022: 3'858 GWh [5]  \n- 2023: 4'624 GWh [4]  \n- 2024: 5'961 GWh [6]  \n\nDie Produktion stieg kontinuierlich von 2'599 GWh im Jahr 2020 auf 5'961 GWh im Jahr 2024 an. [4][5][6]",
+      "answer": "Die Photovoltaikproduktion in der Schweiz entwickelte sich von 2020 bis 2024 wie folgt:\n\n- 2020: 2'599 GWh [1]  \n- 2021: 2'842 GWh [1]  \n- 2022: 3'858 GWh [2]  \n- 2023: 4'624 GWh [1]  \n- 2024: 5'961 GWh [3]  \n\nDie Produktion stieg kontinuierlich von 2'599 GWh im Jahr 2020 auf 5'961 GWh im Jahr 2024 an. [1][2][3]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s5",
+          "title": "2024-07-11_statistik-sonnenenergie.pdf",
+          "published_at": "2024-07-11",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11802",
+          "original_number": 4
+        },
+        {
+          "number": 2,
+          "source_id": "s6",
+          "title": "2024-07-01_solarbildung-schweiz-strategie-und-umsetzung-20242030.pdf",
+          "published_at": "2024-07-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11831",
+          "original_number": 5
+        },
+        {
+          "number": 3,
+          "source_id": "s7",
+          "title": "2025-07-10_statistik-sonnenenergie.pdf",
+          "published_at": "2025-07-10",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12222",
+          "original_number": 6
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "2020: 2'599 GWh",
+            "classification": "directly_supported",
+            "reason": "This value is explicitly stated in the MCP evidence [3] and [4] for solar PV production in 2020."
+          },
+          {
+            "claim": "2021: 2'842 GWh",
+            "classification": "directly_supported",
+            "reason": "This value is explicitly stated in MCP evidence [3] and [4] for 2021 solar PV production."
+          },
+          {
+            "claim": "2022: 3'858 GWh",
+            "classification": "directly_supported",
+            "reason": "This value is explicitly stated in MCP evidence [5] for 2022 solar PV production."
+          },
+          {
+            "claim": "2023: 4'624 GWh",
+            "classification": "directly_supported",
+            "reason": "This value is explicitly stated in MCP evidence [4] and [5] for 2023 solar PV production."
+          },
+          {
+            "claim": "2024: 5'961 GWh",
+            "classification": "partially_supported",
+            "reason": "The value 5'961 GWh for 2024 appears in evidence [6], but the source is dated 2025-07-10, indicating it is a projection or preliminary estimate. The evidence does not confirm this as a final, measured value. The candidate presents it as a certain figure without indicating uncertainty."
+          },
+          {
+            "claim": "Die Produktion stieg kontinuierlich von 2'599 GWh im Jahr 2020 auf 5'961 GWh im Jahr 2024 an.",
+            "classification": "partially_supported",
+            "reason": "While the trend of increase is supported by the data, the claim of continuous rise assumes no decline between years. The evidence supports growth, but the word 'kontinuierlich' implies uninterrupted and confirmed growth, which for 2024 is based on a forward-dated source and not yet verified data."
+          }
+        ],
+        "scores": {
+          "groundedness": 4,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 4,
+          "uncertainty_handling": 3,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [
+          "The 2024 value of 5'961 GWh comes from a document dated 2025-07-10, indicating it is a projection or preliminary estimate, but the answer presents it as a confirmed value without any qualification."
+        ],
+        "strengths": [
+          "All cited values for 2020–2023 are accurately extracted from the evidence.",
+          "Citations are correctly placed next to the corresponding data points.",
+          "The answer is complete, covering all requested years with specific values.",
+          "The language is clear, relevant, and in German as required."
+        ],
+        "summary": "The answer is highly accurate and well-structured, with correct citations and complete coverage of the timeline. However, it fails to acknowledge the uncertainty around the 2024 figure, which comes from a future-dated source and is likely a projection. This results in a moderate deduction in uncertainty handling, but all other dimensions are strong."
+      },
+      "semantic_quality": 0.89,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.902,
+      "total_latency_seconds": 5.0699,
+      "judge_latency_seconds": 11.3582,
+      "error": null
+    },
+    {
+      "id": "E2E_TIMELINE_03",
+      "group": "TIMELINE",
+      "language": "fr",
+      "category": "historical",
+      "question": "Comment la production photovoltaïque a-t-elle évolué entre 2020 et 2024 ?",
+      "expected_tool": "bfe-energy___get_metric_timeline",
+      "selected_tool": "bfe-energy___get_metric_timeline",
+      "routing_correct": true,
+      "routing_reason": "The user asks about the evolution of photovoltaic production between 2020 and 2024, which is a request for a time series of a specific metric over multiple years. The metric timeline tool is designed exactly for this: querying a given metric across a year range and returning source-attributed passages with the data needed to assess evolution. The detail 'full' ensures we get the verbatim text to extract the actual production values.",
+      "arguments": {
+        "metric": "solar PV production",
+        "start_year": 2020,
+        "end_year": 2024,
+        "detail": "full"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "La production photovoltaïque suisse a évolué comme suit entre 2020 et 2024 :\n\n- 2020 : 2'599 GWh [3]\n- 2021 : 2'842 GWh [3]\n- 2022 : 3'858 GWh [5]\n- 2023 : 4'624 GWh [4]\n- 2024 : 5'961 GWh [6]\n\nLa production a augmenté de manière continue chaque année, passant de 2'599 GWh en 2020 à 5'961 GWh en 2024. [3][5][4][6]",
+      "answer": "La production photovoltaïque suisse a évolué comme suit entre 2020 et 2024 :\n\n- 2020 : 2'599 GWh [1]\n- 2021 : 2'842 GWh [1]\n- 2022 : 3'858 GWh [2]\n- 2023 : 4'624 GWh [3]\n- 2024 : 5'961 GWh [4]\n\nLa production a augmenté de manière continue chaque année, passant de 2'599 GWh en 2020 à 5'961 GWh en 2024. [1][2][3][4]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s4",
+          "title": "2022-07-14_statistik-sonnenenergie.pdf",
+          "published_at": "2022-07-14",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/10986",
+          "original_number": 3
+        },
+        {
+          "number": 2,
+          "source_id": "s6",
+          "title": "2024-07-01_solarbildung-schweiz-strategie-und-umsetzung-20242030.pdf",
+          "published_at": "2024-07-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11831",
+          "original_number": 5
+        },
+        {
+          "number": 3,
+          "source_id": "s5",
+          "title": "2024-07-11_statistik-sonnenenergie.pdf",
+          "published_at": "2024-07-11",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11802",
+          "original_number": 4
+        },
+        {
+          "number": 4,
+          "source_id": "s7",
+          "title": "2025-07-10_statistik-sonnenenergie.pdf",
+          "published_at": "2025-07-10",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12222",
+          "original_number": 6
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "2020 : 2'599 GWh",
+            "classification": "directly_supported",
+            "reason": "Source [3] (2022-07-14_statistik-sonnenenergie.pdf) states that photovoltaic production was 2'599 GWh in 2020."
+          },
+          {
+            "claim": "2021 : 2'842 GWh",
+            "classification": "directly_supported",
+            "reason": "Source [3] explicitly states that production increased from 2'599 GWh in 2020 to 2'842 GWh in 2021."
+          },
+          {
+            "claim": "2022 : 3'858 GWh",
+            "classification": "directly_supported",
+            "reason": "Source [5] (2024-07-01_solarbildung-schweiz-strategie-und-umsetzung-20242030.pdf) states that in 2022, 3'858 GWh were produced by PV systems."
+          },
+          {
+            "claim": "2023 : 4'624 GWh",
+            "classification": "directly_supported",
+            "reason": "Source [4] (2024-07-11_statistik-sonnenenergie.pdf) confirms that PV production reached 4'624 GWh in 2023."
+          },
+          {
+            "claim": "2024 : 5'961 GWh",
+            "classification": "directly_supported",
+            "reason": "Source [6] (2025-07-10_statistik-sonnenenergie.pdf) describes a bar chart showing PV production of 5,961 GWh in 2024."
+          },
+          {
+            "claim": "La production a augmenté de manière continue chaque année",
+            "classification": "directly_supported",
+            "reason": "The cited data points show a consistent year-on-year increase from 2020 to 2024, with no decrease, and the evidence (e.g., [4], [6]) describes a continuous growth trajectory."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "All numerical claims are directly supported by the MCP evidence.",
+          "Citations are correctly matched to the specific data points they support.",
+          "The answer is complete, covering all requested years from 2020 to 2024 with accurate values.",
+          "The answer correctly distinguishes production (GWh) and does not confuse it with capacity or sales.",
+          "No unsupported inferences or estimates are introduced; all values are taken directly from evidence.",
+          "The language is clear, relevant, and in French as requested."
+        ],
+        "summary": "The candidate answer is excellent: fully grounded, accurately cited, complete, numerically correct, and clearly presented in the requested language. All claims are directly supported by the MCP evidence, and no unsupported inferences or citation errors are present."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.99,
+      "total_latency_seconds": 5.4505,
+      "judge_latency_seconds": 10.9749,
+      "error": null
+    },
+    {
+      "id": "E2E_TIMELINE_04",
+      "group": "TIMELINE",
+      "language": "en",
+      "category": "annual_values",
+      "question": "Give me the yearly values for solar electricity production from 2020 through 2024.",
+      "expected_tool": "bfe-energy___get_metric_timeline",
+      "selected_tool": "bfe-energy___get_metric_timeline",
+      "routing_correct": true,
+      "routing_reason": "The user explicitly asks for yearly values over a multi-year range (2020–2024), which matches the timeline tool's purpose of tracking a metric across consecutive years.",
+      "arguments": {
+        "metric": "solar electricity production",
+        "start_year": 2020,
+        "end_year": 2024
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "The available SFOE evidence does not contain the specific yearly values for solar electricity production for the years 2020 through 2024. The provided data includes only metadata about sources and coverage years, but no actual production values (e.g., in GWh or similar units) for any year. Therefore, it is not possible to extract the requested yearly solar electricity production values from the given result.",
+      "answer": "The available SFOE evidence does not contain the specific yearly values for solar electricity production for the years 2020 through 2024. The provided data includes only metadata about sources and coverage years, but no actual production values (e.g., in GWh or similar units) for any year. Therefore, it is not possible to extract the requested yearly solar electricity production values from the given result.",
+      "sources": [],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "The available SFOE evidence does not contain the specific yearly values for solar electricity production for the years 2020 through 2024.",
+            "classification": "directly_supported",
+            "reason": "The MCP tool result includes metadata about sources and coverage years but does not include any actual numerical values (e.g., in GWh) for solar electricity production in any year, despite covering years 2020–2024 across various sources."
+          },
+          {
+            "claim": "The provided data includes only metadata about sources and coverage years, but no actual production values.",
+            "classification": "directly_supported",
+            "reason": "The 'data' array in the MCP result contains fields like 'years_covered', 'bases', and 'source_id', but no field with actual production quantities (such as GWh). All entries lack numerical production figures."
+          },
+          {
+            "claim": "It is not possible to extract the requested yearly solar electricity production values from the given result.",
+            "classification": "directly_supported",
+            "reason": "No numerical production values are present in the tool result, making extraction of actual yearly production impossible based on the supplied evidence."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "The answer correctly identifies the absence of numerical data in the MCP result.",
+          "All claims are strictly grounded in the evidence without overinterpretation.",
+          "The response abstains appropriately and explains the limitation clearly.",
+          "The language is clear, relevant, and matches the requested English."
+        ],
+        "summary": "The candidate answer accurately assesses that the MCP evidence lacks actual numerical values for solar electricity production from 2020 to 2024, despite covering those years in metadata. It refrains from speculation and correctly concludes that the requested data cannot be extracted. All claims are directly supported by the evidence, and the response is clear, relevant, and well-grounded."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.99,
+      "total_latency_seconds": 5.5041,
+      "judge_latency_seconds": 6.5409,
+      "error": null
+    },
+    {
+      "id": "E2E_TIMELINE_05",
+      "group": "TIMELINE",
+      "language": "de",
+      "category": "renewables_trend",
+      "question": "Wie hat sich die erneuerbare Stromproduktion von 2019 bis 2023 verändert?",
+      "expected_tool": "bfe-energy___get_metric_timeline",
+      "selected_tool": "bfe-energy___get_metric_timeline",
+      "routing_correct": true,
+      "routing_reason": "The user asks about the change in renewable electricity production over multiple specific years (2019 to 2023), which requires a time series of annual values. The metric timeline tool is designed to retrieve yearly values for a given metric across a specified range, making it the best fit for this query.",
+      "arguments": {
+        "metric": "renewable electricity production",
+        "start_year": 2019,
+        "end_year": 2023,
+        "detail": "full"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Die erneuerbare Stromproduktion in der Schweiz stieg von 2019 bis 2023 kontinuierlich an.  \n- 2019: 15'070 TJ [1]  \n- 2020: 235'670 TJ (Gesamtproduktion), davon 7.2% neue erneuerbare Quellen [3]  \n- 2021: 71'017 TJ erneuerbare Stromproduktion [5]  \n- 2022: 65'629 TJ erneuerbare Stromproduktion [7]  \n- 2023: 61.5% des Stromverbrauchs stammte aus erneuerbaren Quellen [8]  \n\nDie Daten zeigen eine insgesamt steigende Tendenz der erneuerbaren Stromproduktion über den Zeitraum 2019–2023, wobei die genauen Werte je nach Jahr und Darstellungsform (absolute TJ-Werte oder Prozentsätze des Verbrauchs/Produktion) variieren. [1][3][5][7][8]",
+      "answer": "Die erneuerbare Stromproduktion in der Schweiz stieg von 2019 bis 2023 kontinuierlich an.  \n- 2019: 15'070 TJ [1]  \n- 2020: 235'670 TJ (Gesamtproduktion), davon 7.2% neue erneuerbare Quellen [2]  \n- 2021: 71'017 TJ erneuerbare Stromproduktion [3]  \n- 2022: 65'629 TJ erneuerbare Stromproduktion [4]  \n- 2023: 61.5% des Stromverbrauchs stammte aus erneuerbaren Quellen [5]  \n\nDie Daten zeigen eine insgesamt steigende Tendenz der erneuerbaren Stromproduktion über den Zeitraum 2019–2023, wobei die genauen Werte je nach Jahr und Darstellungsform (absolute TJ-Werte oder Prozentsätze des Verbrauchs/Produktion) variieren. [1][2][3][4][5]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2020-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2019-vorabzug.pdf",
+          "published_at": "2020-06-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/10126",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "source_id": "s3",
+          "title": "2021-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2020-vorabzug.pdf",
+          "published_at": "2021-06-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/10525",
+          "original_number": 3
+        },
+        {
+          "number": 3,
+          "source_id": "s5",
+          "title": "2022-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2021-vorabzug.pdf",
+          "published_at": "2022-06-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/10955",
+          "original_number": 5
+        },
+        {
+          "number": 4,
+          "source_id": "s7",
+          "title": "2023-06-30_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2022-vorabzug.pdf",
+          "published_at": "2023-06-30",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11448",
+          "original_number": 7
+        },
+        {
+          "number": 5,
+          "source_id": "s8",
+          "title": "2024-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2023-vorabzug.pdf",
+          "published_at": "2024-06-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11788",
+          "original_number": 8
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "Die erneuerbare Stromproduktion in der Schweiz stieg von 2019 bis 2023 kontinuierlich an.",
+            "classification": "partially_supported",
+            "reason": "Die Daten zeigen keine kontinuierliche Steigerung: 2019: 15'070 TJ, 2021: 71'017 TJ, 2022: 65'629 TJ (Rückgang), 2023: kein Produktionswert. Der Trend ist daher nicht durchgängig steigend."
+          },
+          {
+            "claim": "2019: 15'070 TJ [1]",
+            "classification": "directly_supported",
+            "reason": "Quelle [1] (s1) nennt für 2019 neue erneuerbare Quellen mit 15'070 TJ, was direkt mit dem Wert übereinstimmt."
+          },
+          {
+            "claim": "2020: 235'670 TJ (Gesamtproduktion), davon 7.2% neue erneuerbare Quellen [3]",
+            "classification": "directly_supported",
+            "reason": "Quelle [3] (s3) gibt die Gesamtproduktion mit 235'670 TJ und neue erneuerbare Quellen mit 7.2% an. Der Wert ist korrekt und belegt."
+          },
+          {
+            "claim": "2021: 71'017 TJ erneuerbare Stromproduktion [5]",
+            "classification": "contradicted",
+            "reason": "Quelle [5] (s5) nennt 71'017 TJ als Anteil der erneuerbaren Stromproduktion, aber im selben Eintrag wird die Wasserkraft mit 127'278 TJ angegeben, was bereits höher ist. Der Wert 71'017 TJ ist inkonsistent mit der Summe der erneuerbaren Quellen und widerspricht der Gesamtstruktur. Die korrekte Gesamterneuerbare Produktion ist nicht 71'017 TJ."
+          },
+          {
+            "claim": "2022: 65'629 TJ erneuerbare Stromproduktion [7]",
+            "classification": "unsupported",
+            "reason": "Quelle [7] (s7) nennt 65'629 TJ als Gesamtproduktion erneuerbarer Elektrizität, aber nur für die im Diagramm dargestellten Quellen (Biomasse, Umweltwärme, etc.). Dieser Wert bezieht sich nicht auf die gesamte erneuerbare Stromproduktion, sondern auf einen Teil („new renewable“), und deckt nicht die Wasserkraft ab. Der Wert ist daher irreführend als Gesamterneuerbare Produktion."
+          },
+          {
+            "claim": "2023: 61.5% des Stromverbrauchs stammte aus erneuerbaren Quellen [8]",
+            "classification": "directly_supported",
+            "reason": "Quelle [8] (s8) zeigt in einem Diagramm, dass 61.5% des Stromverbrauchs aus erneuerbaren Quellen stammen. Der Wert ist korrekt, bezieht sich aber auf den Verbrauch, nicht auf die Produktion."
+          }
+        ],
+        "scores": {
+          "groundedness": 2,
+          "citation_correctness": 2,
+          "completeness": 3,
+          "numerical_accuracy": 2,
+          "uncertainty_handling": 2,
+          "abstention_quality": 4,
+          "relevance": 4,
+          "language_quality": 5
+        },
+        "unsupported_claims": [
+          "2021: 71'017 TJ erneuerbare Stromproduktion [5]",
+          "2022: 65'629 TJ erneuerbare Stromproduktion [7]"
+        ],
+        "citation_issues": [
+          "Zitation [5] wird für den falschen Wert 71'017 TJ als Gesamterneuerbare Produktion verwendet, obwohl die Quelle diesen Wert nicht so darstellt.",
+          "Zitation [7] wird für 65'629 TJ als Gesamterneuerbare Produktion genutzt, obwohl dieser Wert nur einen Teil (nicht Wasserkraft) abdeckt.",
+          "Zitation [8] wird für 2023 verwendet, obwohl es sich um Verbrauch, nicht Produktion handelt – dies wird nicht differenziert."
+        ],
+        "uncertainty_issues": [
+          "Keine Differenzierung zwischen Produktion und Verbrauch (2023).",
+          "Keine Angabe, dass die Werte für 2021 und 2022 möglicherweise nicht die gesamte erneuerbare Produktion abdecken.",
+          "Keine Erwähnung, dass Wasserkraft in einigen Quellen separat behandelt wird und nicht in den 'new renewable' Kategorien enthalten ist."
+        ],
+        "strengths": [
+          "Korrekte Wiedergabe des 2019-Werts mit Quelle.",
+          "Korrekte Angabe der Gesamtproduktion und des Anteils neuer erneuerbarer Quellen für 2020.",
+          "Korrekte Angabe des Verbrauchsanteils für 2023, wenn auch falsch interpretiert.",
+          "Antwort ist auf Deutsch und klar formuliert."
+        ],
+        "summary": "Die Antwort enthält einige direkt unterstützte Fakten, macht aber schwerwiegende Fehler bei der Interpretation der Daten: falsche Gesamtwerte für 2021 und 2022, Verwechslung von Verbrauch und Produktion (2023), und irreführende Behauptung eines kontinuierlichen Anstiegs. Die Zitierungen sind teilweise ungenau oder irreführend. Obwohl die Antwort versucht, vollständig zu sein, leidet die numerische Genauigkeit und Begründetheit unter falschen Annahmen über die Datenstruktur."
+      },
+      "semantic_quality": 0.52,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.606,
+      "total_latency_seconds": 6.9623,
+      "judge_latency_seconds": 18.2347,
+      "error": null
+    },
+    {
+      "id": "E2E_CHART_01",
+      "group": "CHART",
+      "language": "en",
+      "category": "chart",
+      "question": "What values are shown in the SFOE chart for renewable electricity production?",
+      "expected_tool": "bfe-energy___get_chart_data",
+      "selected_tool": "bfe-energy___get_chart_data",
+      "routing_correct": true,
+      "routing_reason": "The user explicitly asks for values shown in a chart, which matches the purpose of the get_chart_data tool to extract numeric series from charts and tables in SFOE publications.",
+      "arguments": {
+        "topic": "renewable electricity production"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "The SFOE chart for renewable electricity production shows values in terajoules per year (TJ/a) for selected years from 1990 to 2024. The data is presented as estimated ranges based on visual inspection of the chart, with exact precise values not determinable without access to the underlying dataset. The values are:\n\n- 1990: 600-1000 TJ/a [1]\n- 1992: 800-1200 TJ/a [1]\n- 1994: 1000-1500 TJ/a [1]\n- 1996: 1300-1800 TJ/a [1]\n- 1998: 1600-2100 TJ/a [1]\n- 2000: 2300-2900 TJ/a [1]\n- 2002: 2500-3200 TJ/a [1]\n- 2004: 3000-3700 TJ/a [1]\n- 2006: 3500-4200 TJ/a [1]\n- 2008: 4500-5200 TJ/a [1]\n- 2010: 5500-6500 TJ/a [1]\n- 2012: 7000-8000 TJ/a [1]\n- 2014: 9500-10500 TJ/a [1]\n- 2016: 11000-12500 TJ/a [1]\n- 2018: 13000-14500 TJ/a [1]\n- 2020: 18000-20000 TJ/a [1]\n- 2022: 25000-28000 TJ/a [1]\n- 2024: 37000-38000 TJ/a [1]\n\nThe chart shows a non-linear, accelerating growth pattern, with the steepest increase occurring between 2020 and 2024. [1]",
+      "answer": "The SFOE chart for renewable electricity production shows values in terajoules per year (TJ/a) for selected years from 1990 to 2024. The data is presented as estimated ranges based on visual inspection of the chart, with exact precise values not determinable without access to the underlying dataset. The values are:\n\n- 1990: 600-1000 TJ/a [1]\n- 1992: 800-1200 TJ/a [1]\n- 1994: 1000-1500 TJ/a [1]\n- 1996: 1300-1800 TJ/a [1]\n- 1998: 1600-2100 TJ/a [1]\n- 2000: 2300-2900 TJ/a [1]\n- 2002: 2500-3200 TJ/a [1]\n- 2004: 3000-3700 TJ/a [1]\n- 2006: 3500-4200 TJ/a [1]\n- 2008: 4500-5200 TJ/a [1]\n- 2010: 5500-6500 TJ/a [1]\n- 2012: 7000-8000 TJ/a [1]\n- 2014: 9500-10500 TJ/a [1]\n- 2016: 11000-12500 TJ/a [1]\n- 2018: 13000-14500 TJ/a [1]\n- 2020: 18000-20000 TJ/a [1]\n- 2022: 25000-28000 TJ/a [1]\n- 2024: 37000-38000 TJ/a [1]\n\nThe chart shows a non-linear, accelerating growth pattern, with the steepest increase occurring between 2020 and 2024. [1]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2026-06-26_schweizerische-statistik-der-erneuerbaren-energien-2025-vorabzug.pdf",
+          "published_at": "2026-06-26",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12663",
+          "original_number": 1
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "The SFOE chart for renewable electricity production shows values in terajoules per year (TJ/a) for selected years from 1990 to 2024.",
+            "classification": "directly_supported",
+            "reason": "The MCP tool result includes a chart with column 'Renewable Electricity Production (TJ/a)' and years from 1990 to 2024."
+          },
+          {
+            "claim": "The data is presented as estimated ranges based on visual inspection of the chart, with exact precise values not determinable without access to the underlying dataset.",
+            "classification": "directly_supported",
+            "reason": "This is explicitly stated in the 'note' field of the first chart in the MCP result."
+          },
+          {
+            "claim": "1990: 600-1000 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the 'Renewable Electricity Production (TJ/a)' value for 1990 in the first chart."
+          },
+          {
+            "claim": "1992: 800-1200 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 1992 in the first chart."
+          },
+          {
+            "claim": "1994: 1000-1500 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 1994 in the first chart."
+          },
+          {
+            "claim": "1996: 1300-1800 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 1996 in the first chart."
+          },
+          {
+            "claim": "1998: 1600-2100 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 1998 in the first chart."
+          },
+          {
+            "claim": "2000: 2300-2900 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2000 in the first chart."
+          },
+          {
+            "claim": "2002: 2500-3200 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2002 in the first chart."
+          },
+          {
+            "claim": "2004: 3000-3700 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2004 in the first chart."
+          },
+          {
+            "claim": "2006: 3500-4200 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2006 in the first chart."
+          },
+          {
+            "claim": "2008: 4500-5200 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2008 in the first chart."
+          },
+          {
+            "claim": "2010: 5500-6500 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2010 in the first chart."
+          },
+          {
+            "claim": "2012: 7000-8000 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2012 in the first chart."
+          },
+          {
+            "claim": "2014: 9500-10500 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2014 in the first chart."
+          },
+          {
+            "claim": "2016: 11000-12500 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2016 in the first chart."
+          },
+          {
+            "claim": "2018: 13000-14500 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2018 in the first chart."
+          },
+          {
+            "claim": "2020: 18000-20000 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2020 in the first chart."
+          },
+          {
+            "claim": "2022: 25000-28000 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2022 in the first chart."
+          },
+          {
+            "claim": "2024: 37000-38000 TJ/a",
+            "classification": "directly_supported",
+            "reason": "Matches the value for 2024 in the first chart."
+          },
+          {
+            "claim": "The chart shows a non-linear, accelerating growth pattern, with the steepest increase occurring between 2020 and 2024.",
+            "classification": "directly_supported",
+            "reason": "This is explicitly stated in the 'note' of the first chart in the MCP result."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [],
+        "strengths": [
+          "Faithfully reports estimated ranges instead of inventing exact values",
+          "Correctly cites source [1] for all data points and observations",
+          "Accurately reflects the uncertainty and visual estimation limitations",
+          "Completely covers all years and values from the primary chart",
+          "Maintains correct units (TJ/a) and time range",
+          "Includes key qualitative observation about growth pattern"
+        ],
+        "summary": "The candidate answer is excellent: it accurately, completely, and faithfully reports the chart data as estimated ranges, correctly handles uncertainty, uses proper citations, and stays fully grounded in the MCP evidence."
+      },
+      "semantic_quality": 1.0,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.99,
+      "total_latency_seconds": 8.7938,
+      "judge_latency_seconds": 23.3973,
+      "error": null
+    },
+    {
+      "id": "E2E_CHART_02",
+      "group": "CHART",
+      "language": "de",
+      "category": "chart",
+      "question": "Welche Werte zeigt das BFE-Diagramm zur erneuerbaren Stromproduktion?",
+      "expected_tool": "bfe-energy___get_chart_data",
+      "selected_tool": "bfe-energy___get_chart_data",
+      "routing_correct": true,
+      "routing_reason": "The user asks for values shown in a BFE chart on renewable electricity production, which requires extracting numeric data from a chart or table. The get_chart_data tool is designed for this purpose.",
+      "arguments": {
+        "topic": "erneuerbare Stromproduktion"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Das BFE-Diagramm zur erneuerbaren Stromproduktion zeigt Werte in den Einheiten TJ/a (Terajoule pro Jahr) oder GWh pro Jahr, abhängig vom spezifischen Chart. Die Daten umfassen die Jahre von 1990 bis 2024 und illustrieren einen deutlichen Anstieg der Produktion über diesen Zeitraum. Beispielsweise stieg die Produktion von etwa 1500 TJ/a im Jahr 1990 auf 30.000 TJ/a im Jahr 2024 gemäß einem der Charts [1]. Andere Charts zeigen ähnliche Trends mit Werten wie 1500 TJ/a im Jahr 1990 und 15.000 TJ/a im Jahr 2018 [2], bzw. 450 GWh im Jahr 1990 und 6700 GWh im Jahr 2022 [3]. Die Werte sind teilweise als geschätzt gekennzeichnet, insbesondere wenn sie aus visueller Abfrage der Charts extrahiert wurden [1][2], während andere als exakt angegeben werden [3]. Die Diagramme betonen ein starkes Wachstum, insbesondere zwischen 2010 und 2024, mit einer etwa 5- bis 6-fachen Erhöhung in diesem Zeitraum [1]. Die genauen Werte variieren leicht je nach Quelle und Methode der Datenextraktion, wobei einige Charts klimanormierte Werte ohne Wasserkraft ausweisen [3]. Alle Werte sind im Kontext der erneuerbaren Stromproduktion in der Schweiz zu verstehen. [1][2][3]",
+      "answer": "Das BFE-Diagramm zur erneuerbaren Stromproduktion zeigt Werte in den Einheiten TJ/a (Terajoule pro Jahr) oder GWh pro Jahr, abhängig vom spezifischen Chart. Die Daten umfassen die Jahre von 1990 bis 2024 und illustrieren einen deutlichen Anstieg der Produktion über diesen Zeitraum. Beispielsweise stieg die Produktion von etwa 1500 TJ/a im Jahr 1990 auf 30.000 TJ/a im Jahr 2024 gemäß einem der Charts [1]. Andere Charts zeigen ähnliche Trends mit Werten wie 1500 TJ/a im Jahr 1990 und 15.000 TJ/a im Jahr 2018 [2], bzw. 450 GWh im Jahr 1990 und 6700 GWh im Jahr 2022 [3]. Die Werte sind teilweise als geschätzt gekennzeichnet, insbesondere wenn sie aus visueller Abfrage der Charts extrahiert wurden [1][2], während andere als exakt angegeben werden [3]. Die Diagramme betonen ein starkes Wachstum, insbesondere zwischen 2010 und 2024, mit einer etwa 5- bis 6-fachen Erhöhung in diesem Zeitraum [1]. Die genauen Werte variieren leicht je nach Quelle und Methode der Datenextraktion, wobei einige Charts klimanormierte Werte ohne Wasserkraft ausweisen [3]. Alle Werte sind im Kontext der erneuerbaren Stromproduktion in der Schweiz zu verstehen. [1][2][3]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2025-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2024-vorabzug.pdf",
+          "published_at": "2025-06-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12210",
+          "original_number": 1
+        },
+        {
+          "number": 2,
+          "source_id": "s2",
+          "title": "2020-09-01_schweizerische-statistik-der-erneuerbaren-energien.pdf",
+          "published_at": "2020-09-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12142",
+          "original_number": 2
+        },
+        {
+          "number": 3,
+          "source_id": "s3",
+          "title": "2024-09-01_schweizerische-statistik-der-erneuerbaren-energien.pdf",
+          "published_at": "2024-09-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/11864",
+          "original_number": 3
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "Das BFE-Diagramm zur erneuerbaren Stromproduktion zeigt Werte in den Einheiten TJ/a (Terajoule pro Jahr) oder GWh pro Jahr, abhängig vom spezifischen Chart.",
+            "classification": "directly_supported",
+            "reason": "Die MCP-Ergebnisse enthalten Diagramme mit beiden Einheiten: 'Production (TJ/a)' und 'Renewable_Electricity_Production_GWh_per_year'."
+          },
+          {
+            "claim": "Die Daten umfassen die Jahre von 1990 bis 2024.",
+            "classification": "directly_supported",
+            "reason": "Das erste Diagramm (s1) deckt die Jahre 1990 bis 2024 ab, wie in 'years_covered' angegeben."
+          },
+          {
+            "claim": "Die Produktion stieg von etwa 1500 TJ/a im Jahr 1990 auf 30.000 TJ/a im Jahr 2024 gemäß einem der Charts [1].",
+            "classification": "partially_supported",
+            "reason": "Der Wert 1500 TJ/a für 1990 ist direkt belegt. Der Wert 30.000 für 2024 stammt aus einer Textnotiz im Rohblock von [1], aber in den Zeilen ist der Wert für 2024 als Textfragment ('30000 Estimation ranges...') beschädigt. Der Schätzbereich (29500–30500) wird genannt, aber 30.000 wird nicht als exakter Wert bestätigt. Zudem ist das Diagramm als Schätzung gekennzeichnet."
+          },
+          {
+            "claim": "Andere Charts zeigen ähnliche Trends mit Werten wie 1500 TJ/a im Jahr 1990 und 15.000 TJ/a im Jahr 2018 [2].",
+            "classification": "directly_supported",
+            "reason": "Chart [2] zeigt 1500 TJ/a für 1990 und 15000 TJ/a für 2018 in den 'rows'."
+          },
+          {
+            "claim": "450 GWh im Jahr 1990 und 6700 GWh im Jahr 2022 [3].",
+            "classification": "directly_supported",
+            "reason": "Chart [3] listet genau diese Werte für 1990 und 2022 in GWh/a."
+          },
+          {
+            "claim": "Die Werte sind teilweise als geschätzt gekennzeichnet, insbesondere wenn sie aus visueller Abfrage der Charts extrahiert wurden [1][2].",
+            "classification": "directly_supported",
+            "reason": "Charts [1] und [2] haben 'extraction_method': 'chart_visual_read' und 'is_estimate': true."
+          },
+          {
+            "claim": "Andere als exakt angegeben [3].",
+            "classification": "directly_supported",
+            "reason": "Chart [3] hat 'precision': 'exact' und 'is_estimate': false."
+          },
+          {
+            "claim": "Die Diagramme betonen ein starkes Wachstum, insbesondere zwischen 2010 und 2024, mit einer etwa 5- bis 6-fachen Erhöhung in diesem Zeitraum [1].",
+            "classification": "directly_supported",
+            "reason": "Chart [1] enthält explizit den Text: 'with approximately 5-6x increase in production over this 14-year period' (2010–2024)."
+          },
+          {
+            "claim": "Einige Charts klimanormierte Werte ohne Wasserkraft ausweisen [3].",
+            "classification": "directly_supported",
+            "reason": "Chart [3] hat eine Notiz: 'Values are climate-normalized and represent renewable electricity production excluding hydropower'."
+          },
+          {
+            "claim": "Alle Werte sind im Kontext der erneuerbaren Stromproduktion in der Schweiz zu verstehen.",
+            "classification": "directly_supported",
+            "reason": "Alle Quellen stammen von bfe.admin.ch und beziehen sich auf die 'Schweizerische Statistik der erneuerbaren Energien'."
+          }
+        ],
+        "scores": {
+          "groundedness": 4,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 4,
+          "uncertainty_handling": 4,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [
+          "Der Wert 30.000 TJ/a für 2024 wird als exakt genannt, obwohl er aus einer Schätzung mit Bereich (29500–30500) stammt und im Datensatz beschädigt ist. Die Antwort stellt ihn als festen Wert dar, ohne die Unsicherheit ausreichend zu betonen."
+        ],
+        "strengths": [
+          "Genaue Zusammenfassung mehrerer Charts mit korrekten Werten und Einheiten.",
+          "Korrekte und präzise Zitierung der Quellen direkt neben den jeweiligen Aussagen.",
+          "Gute Berücksichtigung von Unterschieden in Genauigkeit, Normierung und Erhebungsmethode.",
+          "Klare, vollständige und fokussierte Antwort auf die Frage nach den Werten im Diagramm."
+        ],
+        "summary": "Die Antwort ist sehr gut: sie ist vollständig, zitiert korrekt, sprachlich klar und gut strukturiert. Lediglich die Darstellung des 2024-Werts als 30.000 TJ/a ohne ausdrückliche Erwähnung der Schätzung und des Intervalls (29500–30500) mindert leicht die numerische Genauigkeit und die Behandlung von Unsicherheit. Alle anderen Behauptungen sind direkt durch die MCP-Ergebnisse gestützt."
+      },
+      "semantic_quality": 0.91,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.918,
+      "total_latency_seconds": 7.1698,
+      "judge_latency_seconds": 22.1011,
+      "error": null
+    },
+    {
+      "id": "E2E_CHART_03",
+      "group": "CHART",
+      "language": "fr",
+      "category": "chart",
+      "question": "Quelles valeurs sont indiquées dans le graphique de l'OFEN sur la production d'électricité renouvelable ?",
+      "expected_tool": "bfe-energy___get_chart_data",
+      "selected_tool": "bfe-energy___get_chart_data",
+      "routing_correct": true,
+      "routing_reason": "The user explicitly asks for values indicated in a chart about renewable electricity production, which matches the chart-data tool's purpose of extracting numeric series from charts and tables.",
+      "arguments": {
+        "topic": "production d'électricité renouvelable"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Le graphique de l'OFEN sur la production d'électricité renouvelable indique les valeurs suivantes (en TJ/a) pour les années spécifiées : 1990 : 1500 [1], 1992 : 1700 [1], 1994 : 1900 [1], 1996 : 2100 [1], 1998 : 2400 [1], 2000 : 2800 [1], 2002 : 3100 [1], 2004 : 3400 [1], 2006 : 3900 [1], 2008 : 4600 [1], 2010 : 5300 [1], 2012 : 6800 [1], 2014 : 8500 [1], 2016 : 10500 [1], 2018 : 13000 [1], 2020 : 15200 [1], 2022 : 18500 [1], 2024 : 30000 [1]. Ces valeurs sont des estimations basées sur l'inspection visuelle du graphique. [1]",
+      "answer": "Le graphique de l'OFEN sur la production d'électricité renouvelable indique les valeurs suivantes (en TJ/a) pour les années spécifiées : 1990 : 1500 [1], 1992 : 1700 [1], 1994 : 1900 [1], 1996 : 2100 [1], 1998 : 2400 [1], 2000 : 2800 [1], 2002 : 3100 [1], 2004 : 3400 [1], 2006 : 3900 [1], 2008 : 4600 [1], 2010 : 5300 [1], 2012 : 6800 [1], 2014 : 8500 [1], 2016 : 10500 [1], 2018 : 13000 [1], 2020 : 15200 [1], 2022 : 18500 [1], 2024 : 30000 [1]. Ces valeurs sont des estimations basées sur l'inspection visuelle du graphique. [1]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2025-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2024-vorabzug.pdf",
+          "published_at": "2025-06-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12210",
+          "original_number": 1
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "Le graphique de l'OFEN sur la production d'électricité renouvelable indique les valeurs suivantes (en TJ/a) pour les années spécifiées : 1990 : 1500 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 1500 TJ/a pour 1990 provient du premier tableau extrait du document [1], qui est cité correctement."
+          },
+          {
+            "claim": "1992 : 1700 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 1700 TJ/a pour 1992 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "1994 : 1900 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 1900 TJ/a pour 1994 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "1996 : 2100 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 2100 TJ/a pour 1996 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "1998 : 2400 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 2400 TJ/a pour 1998 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2000 : 2800 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 2800 TJ/a pour 2000 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2002 : 3100 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 3100 TJ/a pour 2002 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2004 : 3400 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 3400 TJ/a pour 2004 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2006 : 3900 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 3900 TJ/a pour 2006 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2008 : 4600 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 4600 TJ/a pour 2008 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2010 : 5300 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 5300 TJ/a pour 2010 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2012 : 6800 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 6800 TJ/a pour 2012 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2014 : 8500 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 8500 TJ/a pour 2014 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2016 : 10500 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 10500 TJ/a pour 2016 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2018 : 13000 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 13000 TJ/a pour 2018 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2020 : 15200 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 15200 TJ/a pour 2020 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2022 : 18500 [1]",
+            "classification": "directly_supported",
+            "reason": "La valeur 18500 TJ/a pour 2022 est présente dans le premier tableau du résultat MCP provenant de [1]."
+          },
+          {
+            "claim": "2024 : 30000 [1]",
+            "classification": "partially_supported",
+            "reason": "La valeur 30000 pour 2024 est mentionnée dans le premier tableau, mais le champ 'Production (TJ/a)' contient du texte supplémentaire indiquant qu'il s'agit d'une estimation avec une fourchette de 29500-30500 TJ/a. Le candidat présente cette valeur comme exacte, ce qui n'est pas fidèle à l'incertitude indiquée."
+          },
+          {
+            "claim": "Ces valeurs sont des estimations basées sur l'inspection visuelle du graphique. [1]",
+            "classification": "directly_supported",
+            "reason": "Le résultat MCP indique que la méthode d'extraction est 'chart_visual_read' et que la précision est 'estimated', ce qui soutient cette affirmation."
+          }
+        ],
+        "scores": {
+          "groundedness": 4,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 4,
+          "uncertainty_handling": 3,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [
+          "La valeur 30000 TJ/a pour 2024 est présentée comme exacte alors que l'évidence indique une estimation avec une fourchette de 29500-30500 TJ/a."
+        ],
+        "strengths": [
+          "Réponse complète couvrant toutes les années disponibles dans le tableau principal.",
+          "Citations correctement placées et valides pour chaque donnée.",
+          "Langue claire et conforme à la demande (français).",
+          "Reconnaissance générale du caractère estimé des données."
+        ],
+        "summary": "La réponse est globalement excellente : elle est complète, bien citée, et fidèle aux données du premier tableau extrait. Cependant, elle ne reflète pas adéquatement l'incertitude associée à la dernière valeur (2024), qui est donnée comme une estimation dans une fourchette, et non comme une valeur exacte. Cette omission mine légèrement la gestion de l'incertitude."
+      },
+      "semantic_quality": 0.89,
+      "latency_score": 0.8,
+      "end_to_end_score": 0.902,
+      "total_latency_seconds": 6.7262,
+      "judge_latency_seconds": 16.9821,
+      "error": null
+    },
+    {
+      "id": "E2E_CHART_04",
+      "group": "CHART",
+      "language": "en",
+      "category": "chart_specific_year",
+      "question": "According to the SFOE chart, what value is shown for renewable electricity production in 2024?",
+      "expected_tool": "bfe-energy___get_chart_data",
+      "selected_tool": "bfe-energy___get_chart_data",
+      "routing_correct": true,
+      "routing_reason": "The user asks for a specific value shown in an SFOE chart for renewable electricity production in 2024, which requires extracting numeric data from a chart or table. The get_chart_data tool is designed for this purpose.",
+      "arguments": {
+        "topic": "renewable electricity production 2024"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "30000 TJ/a [1]",
+      "answer": "30000 TJ/a [1]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2025-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2024-vorabzug.pdf",
+          "published_at": "2025-06-01",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/12210",
+          "original_number": 1
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "The renewable electricity production value for 2024 is 30000 TJ/a.",
+            "classification": "directly_supported",
+            "reason": "The MCP tool result contains multiple charts (e.g., chart 1 and chart 3) from source [1] that list the value 30000 TJ/a for the year 2024 under the column 'Renewable Electricity Production (TJ/a)'."
+          },
+          {
+            "claim": "The cited source [1] supports the value of 30000 TJ/a for 2024.",
+            "classification": "directly_supported",
+            "reason": "Source [1] (2025-06-01_schweizerische-statistik-der-erneuerbaren-energien-ausgabe-2024-vorabzug.pdf) is the origin of the chart data showing 30000 TJ/a for 2024, and is correctly referenced."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 5,
+          "completeness": 5,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 3,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [],
+        "uncertainty_issues": [
+          "The answer presents the value 30000 TJ/a as exact, but the MCP evidence explicitly states it is an estimate with a margin of error of ±500–1000 TJ/a for the recent period (2014–2024) and notes the data is based on visual inspection of the chart. The uncertainty is not acknowledged in the answer."
+        ],
+        "strengths": [
+          "The answer correctly identifies the requested value from the chart.",
+          "The citation [1] is accurate and corresponds to the source of the data.",
+          "The answer is concise, relevant, and in the correct language.",
+          "The numerical value and unit match the evidence exactly."
+        ],
+        "summary": "The answer is factually correct, well-cited, and directly responsive. However, it fails to acknowledge the uncertainty in the data, which is explicitly noted in the MCP evidence as estimated values with a significant margin of error. This omission reduces the score in uncertainty handling."
+      },
+      "semantic_quality": 0.96,
+      "latency_score": 1.0,
+      "end_to_end_score": 0.968,
+      "total_latency_seconds": 4.7476,
+      "judge_latency_seconds": 6.8716,
+      "error": null
+    },
+    {
+      "id": "E2E_CHART_05",
+      "group": "CHART",
+      "language": "de",
+      "category": "table",
+      "question": "Extrahiere die Zahlen aus der BFE-Tabelle zur Photovoltaikproduktion.",
+      "expected_tool": "bfe-energy___get_chart_data",
+      "selected_tool": "bfe-energy___get_chart_data",
+      "routing_correct": true,
+      "routing_reason": "The user explicitly asks to extract numbers from a BFE table on photovoltaic production, which matches the purpose of the get_chart_data tool for extracting numeric data from tables and charts in SFOE publications.",
+      "arguments": {
+        "topic": "Photovoltaikproduktion"
+      },
+      "mcp_success": true,
+      "repair_attempted": false,
+      "repair_success": false,
+      "raw_answer": "Die Photovoltaikproduktion in der Schweiz von 2002 bis 2021 (in GWh) lautet wie folgt:  \n2002: 15 [1]  \n2003: 18 [1]  \n2004: 18 [1]  \n2005: 21 [1]  \n2006: 24 [1]  \n2007: 29 [1]  \n2008: 37 [1]  \n2009: 54 [1]  \n2010: 94 [1]  \n2011: 168 [1]  \n2012: 299 [1]  \n2013: 500 [1]  \n2014: 842 [1]  \n2015: 1119 [1]  \n2016: 1333 [1]  \n2017: 1683 [1]  \n2018: 1945 [1]  \n2019: 2178 [1]  \n2020: 2599 [1]  \n2021: 2842 [1]",
+      "answer": "Die Photovoltaikproduktion in der Schweiz von 2002 bis 2021 (in GWh) lautet wie folgt:  \n2002: 15 [1]  \n2003: 18 [1]  \n2004: 18 [1]  \n2005: 21 [1]  \n2006: 24 [1]  \n2007: 29 [1]  \n2008: 37 [1]  \n2009: 54 [1]  \n2010: 94 [1]  \n2011: 168 [1]  \n2012: 299 [1]  \n2013: 500 [1]  \n2014: 842 [1]  \n2015: 1119 [1]  \n2016: 1333 [1]  \n2017: 1683 [1]  \n2018: 1945 [1]  \n2019: 2178 [1]  \n2020: 2599 [1]  \n2021: 2842 [1]",
+      "sources": [
+        {
+          "number": 1,
+          "source_id": "s1",
+          "title": "2022-07-14_statistik-sonnenenergie.pdf",
+          "published_at": "2022-07-14",
+          "download_url": "https://pubdb.bfe.admin.ch/de/publication/download/10986",
+          "original_number": 1
+        }
+      ],
+      "judge": {
+        "claim_checks": [
+          {
+            "claim": "Die Photovoltaikproduktion in der Schweiz von 2002 bis 2021 (in GWh) lautet wie folgt: 2002: 15",
+            "classification": "directly_supported",
+            "reason": "Die Zahl 15 GWh für das Jahr 2002 stammt aus dem ersten Chart (s1), das exakte Werte für die PV-Produktion von 2002 bis 2021 enthält."
+          },
+          {
+            "claim": "2003: 18",
+            "classification": "directly_supported",
+            "reason": "Der Wert 18 GWh für 2003 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2004: 18",
+            "classification": "directly_supported",
+            "reason": "Der Wert 18 GWh für 2004 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2005: 21",
+            "classification": "directly_supported",
+            "reason": "Der Wert 21 GWh für 2005 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2006: 24",
+            "classification": "directly_supported",
+            "reason": "Der Wert 24 GWh für 2006 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2007: 29",
+            "classification": "directly_supported",
+            "reason": "Der Wert 29 GWh für 2007 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2008: 37",
+            "classification": "directly_supported",
+            "reason": "Der Wert 37 GWh für 2008 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2009: 54",
+            "classification": "directly_supported",
+            "reason": "Der Wert 54 GWh für 2009 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2010: 94",
+            "classification": "directly_supported",
+            "reason": "Der Wert 94 GWh für 2010 ist in beiden Charts (s1 und s2) enthalten und wird korrekt zitiert."
+          },
+          {
+            "claim": "2011: 168",
+            "classification": "directly_supported",
+            "reason": "Der Wert 168 GWh für 2011 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2012: 299",
+            "classification": "directly_supported",
+            "reason": "Der Wert 299 GWh für 2012 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2013: 500",
+            "classification": "directly_supported",
+            "reason": "Der Wert 500 GWh für 2013 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2014: 842",
+            "classification": "directly_supported",
+            "reason": "Der Wert 842 GWh für 2014 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2015: 1119",
+            "classification": "directly_supported",
+            "reason": "Der Wert 1119 GWh für 2015 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2016: 1333",
+            "classification": "directly_supported",
+            "reason": "Der Wert 1333 GWh für 2016 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2017: 1683",
+            "classification": "directly_supported",
+            "reason": "Der Wert 1683 GWh für 2017 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2018: 1945",
+            "classification": "directly_supported",
+            "reason": "Der Wert 1945 GWh für 2018 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2019: 2178",
+            "classification": "directly_supported",
+            "reason": "Der Wert 2178 GWh für 2019 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2020: 2599",
+            "classification": "directly_supported",
+            "reason": "Der Wert 2599 GWh für 2020 ist im ersten Chart (s1) exakt enthalten."
+          },
+          {
+            "claim": "2021: 2842",
+            "classification": "directly_supported",
+            "reason": "Der Wert 2842 GWh für 2021 ist im ersten Chart (s1) exakt enthalten."
+          }
+        ],
+        "scores": {
+          "groundedness": 5,
+          "citation_correctness": 4,
+          "completeness": 4,
+          "numerical_accuracy": 5,
+          "uncertainty_handling": 5,
+          "abstention_quality": 5,
+          "relevance": 5,
+          "language_quality": 5
+        },
+        "unsupported_claims": [],
+        "citation_issues": [
+          "Alle Zahlen werden mit [1] zitiert, obwohl die Daten für 2010–2021 auch in [2] enthalten sind. Dies ist kein schwerwiegender Fehler, da [1] die Werte ebenfalls enthält, aber die Zitation könnte präziser sein."
+        ],
+        "uncertainty_issues": [],
+        "strengths": [
+          "Alle Zahlen sind korrekt und direkt aus dem MCP-Ergebnis entnommen.",
+          "Die Antwort ist klar, strukturiert und in der geforderten Sprache (Deutsch) verfasst.",
+          "Die Werte sind numerisch genau und entsprechen exakten Angaben aus der Quelle.",
+          "Keine Spekulationen oder Erweiterungen jenseits der Daten."
+        ],
+        "summary": "Die Antwort extrahiert korrekt und vollständig die Photovoltaikproduktionszahlen von 2002 bis 2021 aus der BFE-Tabelle. Alle Werte sind exakt und stammen aus der zitierten Quelle [1], die diese Daten enthält. Die Zitierweise ist leicht suboptimal, da [2] ebenfalls die späteren Jahre abdeckt, aber da [1] die gesamte Zeitspanne abdeckt, ist die Zitation nicht falsch. Die Antwort ist relevant, numerisch genau und behandelt Unsicherheiten korrekt, da keine Schätzungen vorliegen. Keine Erfindungen oder Fehlinterpretationen."
+      },
+      "semantic_quality": 0.93,
+      "latency_score": 0.6,
+      "end_to_end_score": 0.924,
+      "total_latency_seconds": 10.489,
+      "judge_latency_seconds": 27.1551,
+      "error": null
+    }
+  ]
+}

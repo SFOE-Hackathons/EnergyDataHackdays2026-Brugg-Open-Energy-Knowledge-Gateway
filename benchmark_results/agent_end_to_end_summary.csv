@@ -1,0 +1,5 @@
+group,question_count,end_to_end_score,semantic_quality,routing_accuracy,mcp_success_rate,full_pipeline_success_rate,avg_total_latency_seconds,avg_judge_latency_seconds,groundedness,citation_correctness,completeness,numerical_accuracy,uncertainty_handling,abstention_quality,relevance,language_quality,unsupported_claims,citation_issues,uncertainty_issues
+OVERALL,15,0.9123,0.9053,1.0,1.0,1.0,13.7659,13.7502,4.4,4.467,4.667,4.4,4.067,4.933,4.867,5.0,3,5,8
+SEARCH,5,0.9008,0.896,1.0,1.0,1.0,27.4356,10.6935,4.4,4.2,4.6,4.4,4.2,5.0,4.8,5.0,1,1,1
+TIMELINE,5,0.8956,0.882,1.0,1.0,1.0,6.2769,11.2557,4.2,4.4,4.6,4.2,4.0,4.8,4.8,5.0,2,3,4
+CHART,5,0.9404,0.938,1.0,1.0,1.0,7.5853,19.3014,4.6,4.8,4.8,4.6,4.0,5.0,5.0,5.0,0,1,3

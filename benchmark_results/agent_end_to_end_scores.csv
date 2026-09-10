@@ -1,0 +1,88 @@
+id,group,language,category,question,expected_tool,selected_tool,routing_correct,mcp_success,repair_attempted,repair_success,semantic_quality,end_to_end_score,total_latency_seconds,judge_latency_seconds,answer,groundedness,citation_correctness,completeness,numerical_accuracy,uncertainty_handling,abstention_quality,relevance,language_quality,unsupported_claim_count,citation_issue_count,uncertainty_issue_count,error
+E2E_SEARCH_01,SEARCH,en,general,What role does hydropower play in Switzerland?,bfe-energy___search_energy_knowledge,bfe-energy___search_energy_knowledge,True,True,False,False,1.0,0.96,97.5905,7.0377,"Hydropower is the dominant domestic energy source in Switzerland, particularly in summer when precipitation and snowmelt are highest [1]. In 2023, hydropower (both run-of-river and storage) comprised about 53% of domestic electricity production [2]. During winter months, Switzerland relies significantly on net imports due to reduced hydropower generation [1]. Hydropower also supports Switzerland's role as a net exporter of electricity and contributes to European system support [1].",5,5,5,5,5,5,5,5,0,0,0,
+E2E_SEARCH_02,SEARCH,de,policy,Welche Rolle spielt Wasserstoff in der Schweizer Energiepolitik?,bfe-energy___search_energy_knowledge,bfe-energy___search_energy_knowledge,True,True,False,False,1.0,0.97,25.3081,16.4134,"Wasserstoff spielt in der Schweizer Energiepolitik eine wichtige Rolle als flexibler Energieträger zur Erreichung der Klimaziele, insbesondere durch die Unterstützung der Sektorenkopplung und die Dekarbonisierung schwer zu dekarbonisierender Sektoren wie Industrie, Schwerverkehr, Luft- und Schiffsverkehr [1]. Er kann fossile Energien ersetzen und zur Speicherung erneuerbarer Energien beitragen, wobei grüner Wasserstoff aus erneuerbaren Energien priorisiert wird [1]. Die Schweizer Wasserstoffstrategie zeigt auf, welche Rolle Wasserstoff bis 2035 und 2050 in der Energie- und Klimapolitik einnehmen kann und legt Massnahmen für den Aufbau eines Wasserstoffmarktes und die Anbindung an die europäische Infrastruktur fest [2]. Wasserstoff wird als bedeutender Baustein auf dem Weg zur Klimaneutralität bis 2050 angesehen [1]. Zudem kann er als Energiespeicher zur Integration fluktuierender erneuerbarer Energien ins Energiesystem beitragen [3]. Heute macht Wasserstoff jedoch noch einen sehr kleinen Anteil der Schweizer Energieversorgung aus und wird hauptsächlich aus Erdgas hergestellt [1].",5,5,5,5,5,5,5,5,0,0,0,
+E2E_SEARCH_03,SEARCH,fr,policy,Quels sont les objectifs suisses en matière d'énergie renouvelable ?,bfe-energy___search_energy_knowledge,bfe-energy___search_energy_knowledge,True,True,False,False,1.0,1.0,4.8894,10.8905,"La Suisse vise à atteindre une production d'électricité provenant des nouvelles énergies renouvelables de 14,5 TWh d'ici 2035, dans le cadre de sa stratégie énergétique [1]. Elle vise également à réduire sa consommation énergétique de 43 % et sa consommation d'électricité par habitant de 13 % d'ici 2035 [1]. Pour atteindre ces objectifs, une transformation du système énergétique est nécessaire, passant des énergies fossiles aux énergies renouvelables, avec un soutien politique incluant des instruments de promotion des énergies renouvelables et de l'efficacité énergétique [2].",5,5,5,5,5,5,5,5,0,0,0,
+E2E_SEARCH_04,SEARCH,de,source_precision,Was genau bedeutet die häufig genannte Zahl von rund 58 Prozent für die Schweizer Wasserkraft im Jahr 2020? Bezieht sie sich auf Stromproduktion oder Strombedarf?,bfe-energy___search_energy_knowledge,bfe-energy___search_energy_knowledge,True,True,False,False,0.48,0.584,3.927,11.57,"Die Zahl von rund 58 Prozent bezieht sich auf die Stromproduktion in der Schweiz im Jahr 2020, da sie den Anteil der Wasserkraft an der gesamten Stromerzeugung angibt. [1]",2,1,3,2,1,5,4,5,1,1,1,
+E2E_SEARCH_05,SEARCH,en,insufficient_evidence,What was the exact electricity production of every individual hydropower plant in Switzerland in 2024?,bfe-energy___search_energy_knowledge,bfe-energy___search_energy_knowledge,True,True,False,False,1.0,0.99,5.463,7.5559,"The available SFOE evidence does not provide the exact electricity production of every individual hydropower plant in Switzerland in 2024. The sources contain aggregated data, such as percentage breakdowns by plant type (e.g., storage and run-of-river hydropower contributing 35.7% and 23.9% of total production, respectively) and trends in hydropower production, but they do not list individual plant-level production figures for 2024. Therefore, the specific requested data is not present in the supplied tool result.",5,5,5,5,5,5,5,5,0,0,0,
+E2E_TIMELINE_01,TIMELINE,en,historical,How has photovoltaic production developed from 2020 to 2024?,bfe-energy___get_metric_timeline,bfe-energy___get_metric_timeline,True,True,False,False,1.0,0.99,8.3979,9.1696,"Based on the SFOE evidence, photovoltaic production in Switzerland developed as follows from 2020 to 2024:
+
+- 2020: 2'599 GWh [1]
+- 2021: 2'842 GWh [1]
+- 2022: 3'858 GWh [2]
+- 2023: 4'624 GWh [1]
+- 2024: 5'961 GWh [3]
+
+The production showed consistent year-over-year growth, with an acceleration in the growth rate beginning in 2021. [1]",5,5,5,5,5,5,5,5,0,0,0,
+E2E_TIMELINE_02,TIMELINE,de,historical,Wie hat sich die Photovoltaikproduktion von 2020 bis 2024 entwickelt?,bfe-energy___get_metric_timeline,bfe-energy___get_metric_timeline,True,True,False,False,0.89,0.902,5.0699,11.3582,"Die Photovoltaikproduktion in der Schweiz entwickelte sich von 2020 bis 2024 wie folgt:
+
+- 2020: 2'599 GWh [1]  
+- 2021: 2'842 GWh [1]  
+- 2022: 3'858 GWh [2]  
+- 2023: 4'624 GWh [1]  
+- 2024: 5'961 GWh [3]  
+
+Die Produktion stieg kontinuierlich von 2'599 GWh im Jahr 2020 auf 5'961 GWh im Jahr 2024 an. [1][2][3]",4,5,5,4,3,5,5,5,0,0,1,
+E2E_TIMELINE_03,TIMELINE,fr,historical,Comment la production photovoltaïque a-t-elle évolué entre 2020 et 2024 ?,bfe-energy___get_metric_timeline,bfe-energy___get_metric_timeline,True,True,False,False,1.0,0.99,5.4505,10.9749,"La production photovoltaïque suisse a évolué comme suit entre 2020 et 2024 :
+
+- 2020 : 2'599 GWh [1]
+- 2021 : 2'842 GWh [1]
+- 2022 : 3'858 GWh [2]
+- 2023 : 4'624 GWh [3]
+- 2024 : 5'961 GWh [4]
+
+La production a augmenté de manière continue chaque année, passant de 2'599 GWh en 2020 à 5'961 GWh en 2024. [1][2][3][4]",5,5,5,5,5,5,5,5,0,0,0,
+E2E_TIMELINE_04,TIMELINE,en,annual_values,Give me the yearly values for solar electricity production from 2020 through 2024.,bfe-energy___get_metric_timeline,bfe-energy___get_metric_timeline,True,True,False,False,1.0,0.99,5.5041,6.5409,"The available SFOE evidence does not contain the specific yearly values for solar electricity production for the years 2020 through 2024. The provided data includes only metadata about sources and coverage years, but no actual production values (e.g., in GWh or similar units) for any year. Therefore, it is not possible to extract the requested yearly solar electricity production values from the given result.",5,5,5,5,5,5,5,5,0,0,0,
+E2E_TIMELINE_05,TIMELINE,de,renewables_trend,Wie hat sich die erneuerbare Stromproduktion von 2019 bis 2023 verändert?,bfe-energy___get_metric_timeline,bfe-energy___get_metric_timeline,True,True,False,False,0.52,0.606,6.9623,18.2347,"Die erneuerbare Stromproduktion in der Schweiz stieg von 2019 bis 2023 kontinuierlich an.  
+- 2019: 15'070 TJ [1]  
+- 2020: 235'670 TJ (Gesamtproduktion), davon 7.2% neue erneuerbare Quellen [2]  
+- 2021: 71'017 TJ erneuerbare Stromproduktion [3]  
+- 2022: 65'629 TJ erneuerbare Stromproduktion [4]  
+- 2023: 61.5% des Stromverbrauchs stammte aus erneuerbaren Quellen [5]  
+
+Die Daten zeigen eine insgesamt steigende Tendenz der erneuerbaren Stromproduktion über den Zeitraum 2019–2023, wobei die genauen Werte je nach Jahr und Darstellungsform (absolute TJ-Werte oder Prozentsätze des Verbrauchs/Produktion) variieren. [1][2][3][4][5]",2,2,3,2,2,4,4,5,2,3,3,
+E2E_CHART_01,CHART,en,chart,What values are shown in the SFOE chart for renewable electricity production?,bfe-energy___get_chart_data,bfe-energy___get_chart_data,True,True,False,False,1.0,0.99,8.7938,23.3973,"The SFOE chart for renewable electricity production shows values in terajoules per year (TJ/a) for selected years from 1990 to 2024. The data is presented as estimated ranges based on visual inspection of the chart, with exact precise values not determinable without access to the underlying dataset. The values are:
+
+- 1990: 600-1000 TJ/a [1]
+- 1992: 800-1200 TJ/a [1]
+- 1994: 1000-1500 TJ/a [1]
+- 1996: 1300-1800 TJ/a [1]
+- 1998: 1600-2100 TJ/a [1]
+- 2000: 2300-2900 TJ/a [1]
+- 2002: 2500-3200 TJ/a [1]
+- 2004: 3000-3700 TJ/a [1]
+- 2006: 3500-4200 TJ/a [1]
+- 2008: 4500-5200 TJ/a [1]
+- 2010: 5500-6500 TJ/a [1]
+- 2012: 7000-8000 TJ/a [1]
+- 2014: 9500-10500 TJ/a [1]
+- 2016: 11000-12500 TJ/a [1]
+- 2018: 13000-14500 TJ/a [1]
+- 2020: 18000-20000 TJ/a [1]
+- 2022: 25000-28000 TJ/a [1]
+- 2024: 37000-38000 TJ/a [1]
+
+The chart shows a non-linear, accelerating growth pattern, with the steepest increase occurring between 2020 and 2024. [1]",5,5,5,5,5,5,5,5,0,0,0,
+E2E_CHART_02,CHART,de,chart,Welche Werte zeigt das BFE-Diagramm zur erneuerbaren Stromproduktion?,bfe-energy___get_chart_data,bfe-energy___get_chart_data,True,True,False,False,0.91,0.918,7.1698,22.1011,"Das BFE-Diagramm zur erneuerbaren Stromproduktion zeigt Werte in den Einheiten TJ/a (Terajoule pro Jahr) oder GWh pro Jahr, abhängig vom spezifischen Chart. Die Daten umfassen die Jahre von 1990 bis 2024 und illustrieren einen deutlichen Anstieg der Produktion über diesen Zeitraum. Beispielsweise stieg die Produktion von etwa 1500 TJ/a im Jahr 1990 auf 30.000 TJ/a im Jahr 2024 gemäß einem der Charts [1]. Andere Charts zeigen ähnliche Trends mit Werten wie 1500 TJ/a im Jahr 1990 und 15.000 TJ/a im Jahr 2018 [2], bzw. 450 GWh im Jahr 1990 und 6700 GWh im Jahr 2022 [3]. Die Werte sind teilweise als geschätzt gekennzeichnet, insbesondere wenn sie aus visueller Abfrage der Charts extrahiert wurden [1][2], während andere als exakt angegeben werden [3]. Die Diagramme betonen ein starkes Wachstum, insbesondere zwischen 2010 und 2024, mit einer etwa 5- bis 6-fachen Erhöhung in diesem Zeitraum [1]. Die genauen Werte variieren leicht je nach Quelle und Methode der Datenextraktion, wobei einige Charts klimanormierte Werte ohne Wasserkraft ausweisen [3]. Alle Werte sind im Kontext der erneuerbaren Stromproduktion in der Schweiz zu verstehen. [1][2][3]",4,5,5,4,4,5,5,5,0,0,1,
+E2E_CHART_03,CHART,fr,chart,Quelles valeurs sont indiquées dans le graphique de l'OFEN sur la production d'électricité renouvelable ?,bfe-energy___get_chart_data,bfe-energy___get_chart_data,True,True,False,False,0.89,0.902,6.7262,16.9821,"Le graphique de l'OFEN sur la production d'électricité renouvelable indique les valeurs suivantes (en TJ/a) pour les années spécifiées : 1990 : 1500 [1], 1992 : 1700 [1], 1994 : 1900 [1], 1996 : 2100 [1], 1998 : 2400 [1], 2000 : 2800 [1], 2002 : 3100 [1], 2004 : 3400 [1], 2006 : 3900 [1], 2008 : 4600 [1], 2010 : 5300 [1], 2012 : 6800 [1], 2014 : 8500 [1], 2016 : 10500 [1], 2018 : 13000 [1], 2020 : 15200 [1], 2022 : 18500 [1], 2024 : 30000 [1]. Ces valeurs sont des estimations basées sur l'inspection visuelle du graphique. [1]",4,5,5,4,3,5,5,5,0,0,1,
+E2E_CHART_04,CHART,en,chart_specific_year,"According to the SFOE chart, what value is shown for renewable electricity production in 2024?",bfe-energy___get_chart_data,bfe-energy___get_chart_data,True,True,False,False,0.96,0.968,4.7476,6.8716,30000 TJ/a [1],5,5,5,5,3,5,5,5,0,0,1,
+E2E_CHART_05,CHART,de,table,Extrahiere die Zahlen aus der BFE-Tabelle zur Photovoltaikproduktion.,bfe-energy___get_chart_data,bfe-energy___get_chart_data,True,True,False,False,0.93,0.924,10.489,27.1551,"Die Photovoltaikproduktion in der Schweiz von 2002 bis 2021 (in GWh) lautet wie folgt:  
+2002: 15 [1]  
+2003: 18 [1]  
+2004: 18 [1]  
+2005: 21 [1]  
+2006: 24 [1]  
+2007: 29 [1]  
+2008: 37 [1]  
+2009: 54 [1]  
+2010: 94 [1]  
+2011: 168 [1]  
+2012: 299 [1]  
+2013: 500 [1]  
+2014: 842 [1]  
+2015: 1119 [1]  
+2016: 1333 [1]  
+2017: 1683 [1]  
+2018: 1945 [1]  
+2019: 2178 [1]  
+2020: 2599 [1]  
+2021: 2842 [1]",5,4,4,5,5,5,5,5,0,1,0,
