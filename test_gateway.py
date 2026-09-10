@@ -2,13 +2,27 @@ import os
 import json
 import requests
 
+
+from dotenv import load_dotenv
+
+
+load_dotenv(override=True)
+
+
 CLIENT_ID = os.environ["CLIENT_ID"]
 CLIENT_SECRET = os.environ["CLIENT_SECRET"]
 
-TOKEN_URL = (
-    "https://my-domain-ajdb98m7.auth.eu-central-1.amazoncognito.com/"
-    "oauth2/token"
-)
+
+print("CLIENT_ID loaded:", CLIENT_ID[:6] + "...")
+print("CLIENT_SECRET loaded:", bool(CLIENT_SECRET))
+print("CLIENT_SECRET length:", len(CLIENT_SECRET))
+
+# TOKEN_URL = (
+#    "https://my-domain-ajdb98m7.auth.eu-central-1.amazoncognito.com/oauth2/token"
+# )
+
+TOKEN_URL = os.environ["TOKEN_URL"]
+
 
 GATEWAY_URL = (
     "https://sandbox-bfe-public-kb-8thmswsvit."
@@ -28,12 +42,12 @@ def fetch_access_token():
             "client_id": CLIENT_ID,
             "client_secret": CLIENT_SECRET,
         },
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=30,
     )
 
+    print("Token HTTP status:", response.status_code)
+    # print("Token response:", response.text)
     response.raise_for_status()
     return response.json()["access_token"]
 
@@ -54,20 +68,16 @@ def retrieve(gateway_url, access_token, question):
         "method": "tools/call",
         "params": {
             "name": TOOL_NAME,
-            "arguments": {
-                "retrievalQuery": {
-                    "text": question
-                }
-            },
+            "arguments": {"retrievalQuery": {"text": question}},
             "_meta": {
                 "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
                 "io.modelcontextprotocol/clientInfo": {
                     "name": "bfe-hackathon-test",
-                    "version": "1.0.0"
+                    "version": "1.0.0",
                 },
-                "io.modelcontextprotocol/clientCapabilities": {}
-            }
-        }
+                "io.modelcontextprotocol/clientCapabilities": {},
+            },
+        },
     }
 
     response = requests.post(
@@ -78,17 +88,28 @@ def retrieve(gateway_url, access_token, question):
     )
 
     print("HTTP status:", response.status_code)
+    print("WWW-Authenticate:", response.headers.get("WWW-Authenticate"))
     print("\nRaw response:")
-    print(response.text)
+    # print(response.text)
+
+    data = response.json()
+
+    text = data["result"]["content"][0]["text"]
+    retrieval_data = json.loads(text)
+
+    for i, item in enumerate(retrieval_data["retrievalResults"], 1):
+        print(f"\n--- Result {i} ---")
+        print("Score:", item["score"])
+        print("Document:", item["metadata"]["_document_title"])
+        print("Text:")
+        print(item["content"]["text"])
 
     response.raise_for_status()
     return response.json()
 
 
 def main():
-    question = (
-        "Welche Rolle spielt Wasserkraft in der Schweizer Stromversorgung?"
-    )
+    question = "Welche Rolle spielt Wasserkraft in der Schweizer Stromversorgung?"
 
     print("Fetching access token...")
     access_token = fetch_access_token()
@@ -102,14 +123,8 @@ def main():
         question,
     )
 
-    print("\nParsed response:")
-    print(
-        json.dumps(
-            result,
-            indent=2,
-            ensure_ascii=False
-        )
-    )
+    # print("\nParsed response:")
+    # print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
