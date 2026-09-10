@@ -153,14 +153,17 @@ CLIENT_ID="3bb2sgsr2urspuke653u3otrcq"
 # and see the concurrency section of mcp-gateway/README.md before you do.
 
 # DEBUG returns full upstream error detail to the caller instead of a generic
-# message. It is on because it is the only way to see why a tool call failed --
-# a raised ToolInvocationError from the Lambda is otherwise reported as an
-# opaque 500.
+# message. With the gateway open that detail -- ARNs, target ids, upstream
+# error text -- would reach anyone at all, so the default is off and failures
+# surface as opaque errors. When a tool call fails and the generic message is
+# not enough, turn it on for the diagnosis and back off afterwards:
 #
-# It also means internal identifiers -- ARNs, target ids, upstream error text --
-# reach ANY caller, and with an open gateway that is anyone at all. This is the
-# setting to turn off first if this outlives the hackathon.
-EXCEPTION_LEVEL="DEBUG"
+#   EXCEPTION_LEVEL=DEBUG ./infra/create-gateway.sh   # diagnose
+#   ./infra/create-gateway.sh                         # revert
+#
+# The Lambda's own logs are the non-public alternative and are usually enough:
+# ./infra/deploy-lambda.sh prints the `aws logs tail` command for them.
+EXCEPTION_LEVEL="${EXCEPTION_LEVEL:-}"
 
 # The target: the MCP server itself.
 #
@@ -314,14 +317,21 @@ authorizer_configuration() {
 JSON
 }
 
-# `authorizerConfiguration` is required for CUSTOM_JWT and rejected for NONE,
-# so the flag pair is built rather than always passed. Bash arrays, not a
-# string: a quoted-string "$FLAGS" would arrive as one argument and an unquoted
-# one would word-split the JSON on every space in it.
-authorizer_flags() {
-  AUTHORIZER_FLAGS=(--authorizer-type "$AUTHORIZER_TYPE")
+# The flags that vary with configuration: `authorizerConfiguration` is
+# required for CUSTOM_JWT and rejected for NONE, and `--exception-level` is
+# only passed when set (update-gateway replaces the whole configuration, so
+# omitting it is what turns DEBUG off again). Bash arrays, not a string: a
+# quoted-string "$FLAGS" would arrive as one argument and an unquoted one
+# would word-split the JSON on every space in it. One array for all of it,
+# because it is never empty -- expanding an empty array trips `set -u` on the
+# bash 3.2 that macOS ships.
+gateway_flags() {
+  GATEWAY_FLAGS=(--authorizer-type "$AUTHORIZER_TYPE")
   if [[ "$AUTHORIZER_TYPE" == "CUSTOM_JWT" ]]; then
-    AUTHORIZER_FLAGS+=(--authorizer-configuration "$(authorizer_configuration)")
+    GATEWAY_FLAGS+=(--authorizer-configuration "$(authorizer_configuration)")
+  fi
+  if [[ -n "$EXCEPTION_LEVEL" ]]; then
+    GATEWAY_FLAGS+=(--exception-level "$EXCEPTION_LEVEL")
   fi
 }
 
@@ -478,7 +488,7 @@ require_invoke_grant
 LAMBDA_ARN="$(lambda_arn)"
 echo "==> MCP server: $LAMBDA_ARN"
 generate_tool_schema
-authorizer_flags
+gateway_flags
 
 if [[ -z "$GATEWAY_ID" ]]; then
   echo "==> creating gateway $GATEWAY_NAME (inbound auth: $AUTHORIZER_TYPE)"
@@ -488,8 +498,7 @@ if [[ -z "$GATEWAY_ID" ]]; then
     --role-arn "$ROLE_ARN" \
     --protocol-type MCP \
     --protocol-configuration "$(protocol_configuration)" \
-    "${AUTHORIZER_FLAGS[@]}" \
-    --exception-level "$EXCEPTION_LEVEL" \
+    "${GATEWAY_FLAGS[@]}" \
     --output json | python3 -c 'import sys,json;print(json.load(sys.stdin)["gatewayId"])')"
 else
   # update-gateway replaces the whole configuration, so re-running this script
@@ -509,8 +518,7 @@ else
     --role-arn "$ROLE_ARN" \
     --protocol-type MCP \
     --protocol-configuration "$(protocol_configuration)" \
-    "${AUTHORIZER_FLAGS[@]}" \
-    --exception-level "$EXCEPTION_LEVEL" \
+    "${GATEWAY_FLAGS[@]}" \
     --output json 2>&1 >/dev/null)"; then
     echo "error: update-gateway failed:" >&2
     echo "$UPDATE_ERR" | sed 's/^/       /' >&2
