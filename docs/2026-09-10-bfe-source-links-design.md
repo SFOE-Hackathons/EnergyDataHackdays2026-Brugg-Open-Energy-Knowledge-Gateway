@@ -1,62 +1,66 @@
-# Замена S3-ссылок на ссылки на публикации BFE
+# Replacing S3 source URIs with links to BFE publications
 
-Дата: 2026-09-10
-Статус: согласовано, готово к планированию
+Date: 2026-09-10
+Status: agreed, ready for planning
 
-## Проблема
+## Problem
 
-MCP-сервер `bfe-public-knowledge` (прокси `mcp/bfe_mcp_proxy.py`) отдаёт клиенту
-ответ шлюза AgentCore как есть. В каждом чанке выдачи источник указан тремя полями,
-и все три ведут в S3:
+The `bfe-public-knowledge` MCP server (adapter `mcp/bfe_mcp_proxy.py`) forwards the
+AgentCore Gateway response to the client unchanged. Every retrieved chunk states its
+source in three fields, and all three point into S3:
 
 - `documentId` — `s3://sandbox-bfe-public-data-pdf/<key>`
 - `location.s3Location.uri` — `https://sandbox-bfe-public-data-pdf.s3.eu-central-1.amazonaws.com/<key>`
-- `metadata._source_uri` — то же самое, автогенерённое Bedrock из S3-локации
+- `metadata._source_uri` — the same value, auto-derived by Bedrock from the S3 location
 
-Бакет непубличный: GET объекта возвращает `403 AccessDenied`, листинг тоже.
-То есть процитированные источники не открываются вообще ни у кого, кроме владельцев
-аккаунта песочницы. Поля `_source_uri` недостаточно — это не указатель на оригинал,
-а производная от той же S3-локации.
+The bucket is not public: a GET on an object returns `403 AccessDenied`, and so does
+a listing. Cited sources therefore open for nobody except the owners of the sandbox
+account. `_source_uri` does not help — it is not a pointer to the original
+publication, only a restatement of the same S3 location.
 
-Это ровно пункты 3 («Improve Source Transparency») и 4 («Improve Metadata») из
-челленджа: связать найденное знание с оригинальной публикацией BFE.
+This is exactly points 3 ("Improve Source Transparency") and 4 ("Improve Metadata")
+of the challenge: linking retrieved knowledge back to the original BFE publication.
 
-## Что известно об источниках
+## What we know about the sources
 
-Каноническая ссылка на PDF на стороне BFE — `https://pubdb.bfe.admin.ch/de/publication/download/<id>`.
-Сам `www.bfe.admin.ch` ссылается на публикации именно так, заворачивая этот URL
-в `.exturl.html/<base64>`, поэтому промежуточная страница-обёртка ценности не добавляет.
+The canonical link to a PDF on the BFE side is
+`https://pubdb.bfe.admin.ch/de/publication/download/<id>`. `www.bfe.admin.ch` itself
+links to publications this way, wrapping that URL in `.exturl.html/<base64>`, so the
+intermediate wrapper page adds no value.
 
-Установлено разведкой:
+Established by investigation:
 
-- id-пространство pubdb — примерно `1000…13000`, разрежённое (часть id отдаёт 404),
-  встречаются не только PDF, но и `.docx`.
-- Поиска или API у pubdb нет: работает только `/de/publication/download/<id>`.
-- `HEAD` по этому URL отдаёт `Content-Disposition` с оригинальным именем файла
-  (`7238-20251126_Faktenblatt Förderung_PV_DE.pdf`), `Content-Type` и `Last-Modified`.
-  Каталог всех публикаций строится ~12k HEAD-запросов, без скачивания тел.
-- `www.bfe.admin.ch` переехал на новую структуру (`/de/...`; старые `/bfe/de/home/*.html` — 404)
-  и требует браузерный User-Agent, иначе отдаёт 404 на всё.
+- The pubdb id space runs roughly `1000…13000` and is sparse (some ids return 404).
+  Not every entry is a PDF; `.docx` occurs too.
+- pubdb offers no search and no API — only `/de/publication/download/<id>` works.
+- A `HEAD` on that URL returns `Content-Disposition` carrying the original filename
+  (`7238-20251126_Faktenblatt Förderung_PV_DE.pdf`), plus `Content-Type` and
+  `Last-Modified`. A catalogue of all publications therefore costs ~12k HEAD
+  requests and no body downloads.
+- `www.bfe.admin.ch` has moved to a new structure (`/de/...`; the old
+  `/bfe/de/home/*.html` paths return 404) and requires a browser User-Agent,
+  otherwise it answers 404 to everything.
 
-Ключ сопоставления — дата. S3-ключ имеет вид `YYYY-MM-DD_<слуг-заголовка>.pdf`,
-и для проверенного примера дата `2025-11-26` совпала с датой `20251126` внутри имени
-файла в pubdb (id 7238), а `Last-Modified` там же — 2025-11-27.
+**The join key is the date.** An S3 key has the form `YYYY-MM-DD_<title-slug>.pdf`,
+and for the verified example the date `2025-11-26` matched the date `20251126`
+embedded in the pubdb filename (id 7238), whose `Last-Modified` is 2025-11-27.
 
-Сопоставление по именам файлов при этом слабое и само по себе на него полагаться нельзя:
-слуг в S3 сделан из **заголовка** документа, а имя в pubdb — внутреннее.
+Matching on filenames alone is weak and must not be relied upon: the S3 slug is
+derived from the document **title**, whereas the pubdb name is an internal one.
 `forderung-von-photovoltaikanlagen-einmalvergutung-gleitende-marktpramie-und-boni`
-против `Faktenblatt Förderung_PV_DE` даёт пересечение в один токен из семи.
-Поэтому неоднозначность разрешается содержимым, а не именем.
+against `Faktenblatt Förderung_PV_DE` overlaps in one token out of seven. Ambiguity
+is therefore resolved by content, not by name.
 
-## Решение
+## Solution
 
-Три компонента, связанных одним артефактом — `mcp/source_map.json`.
-Фаза 1 чинит выдачу нашего прокси, фаза 2 переиспользует ту же карту для метаданных KB.
+Three components tied together by a single artefact, `mcp/source_map.json`.
+Phase 1 fixes the output of our own adapter; phase 2 reuses the same map for the
+Knowledge Base metadata.
 
-### 1. `mcp/pubdb_index.py` — каталог публикаций
+### 1. `mcp/pubdb_index.py` — publication catalogue
 
-Офлайн-сканер. `HEAD` по всем id диапазона (по умолчанию `1000…13000`, границы
-задаются параметрами), собирает `mcp/pubdb_index.json`:
+An offline scanner. It issues `HEAD` across the id range (default `1000…13000`,
+bounds configurable) and collects `mcp/pubdb_index.json`:
 
 ```json
 {"7238": {"filename": "7238-20251126_Faktenblatt Förderung_PV_DE.pdf",
@@ -65,14 +69,14 @@ MCP-сервер `bfe-public-knowledge` (прокси `mcp/bfe_mcp_proxy.py`) о
           "size": 501211}}
 ```
 
-Требования: идемпотентность (повторный запуск дозаполняет, не перескачивает),
-вежливый rate-limit и ограниченная конкурентность, браузерный User-Agent,
-корректный разбор `filename*=utf-8''` (умляуты в именах percent-encoded),
-устойчивость к 404 и таймаутам.
+Requirements: idempotency (a rerun fills gaps rather than refetching everything),
+a polite rate limit and bounded concurrency, a browser User-Agent, correct parsing
+of `filename*=utf-8''` (umlauts in filenames are percent-encoded), and tolerance of
+404s and timeouts.
 
-### 2. `mcp/build_source_map.py` — сопоставление
+### 2. `mcp/build_source_map.py` — matching
 
-Вход: список ключей бакета + `pubdb_index.json`. Выход: `mcp/source_map.json`:
+Input: the list of bucket keys plus `pubdb_index.json`. Output: `mcp/source_map.json`:
 
 ```json
 {"2025-11-26_forderung-von-photovoltaikanlagen-....pdf": {
@@ -81,116 +85,117 @@ MCP-сервер `bfe-public-knowledge` (прокси `mcp/bfe_mcp_proxy.py`) о
     "verified_at": "2026-09-10T12:00:00Z"}}
 ```
 
-Алгоритм на каждый S3-ключ:
+For each S3 key:
 
-1. Разобрать ключ на дату и слуг заголовка.
-2. Кандидаты — записи pubdb, у которых эта дата встречается в имени файла;
-   если таких нет, расширить до окна `Last-Modified` ±14 дней, затем ±90.
-3. Ровно один кандидат — принять.
-4. Больше одного — скачать кандидатов, извлечь через `pypdf` заголовок из метаданных
-   PDF и текст первой страницы, отранжировать по сходству с де-слугифицированным
-   заголовком из S3-ключа, взять лучшего выше порога.
-5. Ноль кандидатов или все ниже порога — оставить неразрешённым.
+1. Split the key into a date and a title slug.
+2. Candidates are pubdb entries whose filename contains that date; if there are
+   none, widen to a `Last-Modified` window of ±14 days, then ±90.
+3. Exactly one candidate — accept it.
+4. More than one — download the candidates, extract the PDF metadata title and the
+   first-page text with `pypdf`, rank by similarity against the de-slugified title
+   from the S3 key, and take the best one above the threshold.
+5. Zero candidates, or all below the threshold — leave unresolved.
 
-Нормализация для сравнения: нижний регистр, деумляутизация (`ö→o`, `ä→a`, `ü→u`, `ß→ss`),
-разбиение на токены по не-буквам, сравнение множеств токенов.
-Это нужно потому, что слуги в S3 уже лишены умляутов (`forderung`, `marktpramie`).
+Normalisation for comparison: lowercase, umlaut folding (`ö→o`, `ä→a`, `ü→u`,
+`ß→ss`), tokenisation on non-letters, and token-set comparison. This is needed
+because the S3 slugs have already lost their umlauts (`forderung`, `marktpramie`).
 
-Значения `match`: `date` — дата дала единственного кандидата;
-`date+content` — кандидатов было несколько, выбор сделан по содержимому PDF;
-`mtime` и `mtime+content` — то же, но кандидаты набраны по окну `Last-Modified`.
-Неразрешённые документы в карту не пишутся вовсе.
+Values of `match`: `date` — the date yielded a single candidate; `date+content` —
+there were several candidates and the choice was made on PDF content; `mtime` and
+`mtime+content` — the same, with candidates gathered from the `Last-Modified`
+window. Unresolved documents are not written to the map at all.
 
-Каждая записанная ссылка верифицируется `HEAD`-ом: `200` и `application/pdf`.
-Неверифицированные в карту не попадают.
+Every recorded link is verified with a `HEAD`: `200` and `application/pdf`.
+Unverified links do not enter the map.
 
-**Гейт на достоверность.** Скрипт сначала прогоняется на выборке ~30 документов,
-match rate и спорные случаи показываются глазами. Только после этого — полный прогон.
-Если гипотеза с датой не подтвердится, пересматривается матчер; остальные компоненты
-не затрагиваются.
+**Confidence gate.** The script is first run over a sample of ~30 documents, and the
+match rate and disputable cases are reviewed by eye. Only then does the full run
+follow. Should the date hypothesis fail to hold, the matcher is reconsidered; the
+other components are unaffected.
 
-### 3. Патч `mcp/bfe_mcp_proxy.py` — переписывание выдачи
+### 3. Patch to `mcp/bfe_mcp_proxy.py` — rewriting the response
 
-Функция `rewrite_sources(result)` вызывается в обработчике `tools/call` между
-`call_gateway()` и `result()`.
+`rewrite_sources(result)` is called in the `tools/call` handler between
+`call_gateway()` and `result()`.
 
-**Форма ответа шлюза** (проверено вызовом): выдача приходит не плоской, а в
-стандартной MCP-обёртке
+**Shape of the Gateway response** (confirmed by an actual call): the payload does not
+arrive flat, but inside the standard MCP envelope
 
 ```json
 {"isError": false, "resultType": "...",
  "content": [{"type": "text", "text": "{\"retrievalResults\":[...]}"}]}
 ```
 
-то есть весь полезный JSON лежит **строкой** внутри `content[0].text`.
-Поэтому rewrite обязан: распарсить эту строку, изменить объект, сериализовать
-обратно и положить на место. Элементы `content` с `type != "text"` и строки,
-которые не парсятся как JSON с ключом `retrievalResults`, пропускаются
-нетронутыми.
+that is, the entire useful JSON sits as a **string** inside `content[0].text`. The
+rewrite must therefore parse that string, modify the object, serialise it back and
+put it in place. `content` elements whose `type != "text"`, and strings that do not
+parse as JSON containing a `retrievalResults` key, are passed through untouched.
 
-Дальше, для каждого элемента `retrievalResults`:
+Then, for each entry in `retrievalResults`:
 
 - `location.s3Location.uri` → `pdf_url`
 - `metadata._source_uri` → `pdf_url`
-- добавляется `metadata.source_url` и `metadata.source_confidence`
-  (`verified` — точная ссылка из карты, `search` — поисковый фолбэк)
-- при `verified` добавляется `metadata.pubdb_id`
-- `documentId` не трогается: это стабильный идентификатор объекта в KB,
-  по нему удобно дедуплицировать чанки одного документа при цитировании
+- `metadata.source_url` and `metadata.source_confidence` are added
+  (`verified` — an exact link from the map, `search` — the search fallback)
+- `metadata.pubdb_id` is added when `verified`
+- `documentId` is left alone: it is the stable identifier of the object in the
+  Knowledge Base, and it is convenient for deduplicating chunks of one document
+  when rendering citations
 
-Фолбэк для неразрешённых документов — детерминированный поисковый URL, построенный
-из де-слугифицированного заголовка:
+The fallback for unresolved documents is a deterministic search URL built from the
+de-slugified title:
 
 ```
-https://www.google.com/search?q=<urlencode(site:pubdb.bfe.admin.ch OR site:bfe.admin.ch "<заголовок>")>
+https://www.google.com/search?q=<urlencode(site:pubdb.bfe.admin.ch OR site:bfe.admin.ch "<title>")>
 ```
 
-Он всегда кликабелен и всегда честно помечен `source_confidence: "search"`,
-так что клиент может отличить точную ссылку от подсказки для поиска.
-Базовый поисковик вынесен в константу.
+It is always clickable and always honestly marked `source_confidence: "search"`, so a
+client can tell an exact link from a hint for searching. The search engine base URL
+is kept in a constant.
 
-Карта читается один раз при старте процесса. Дальше — словарный lookup,
-никаких сетевых вызовов в горячем пути, задержка ответа не растёт.
+The map is read once at process start. After that it is a dictionary lookup: no
+network calls on the hot path, and no added response latency.
 
-### Обработка ошибок
+### Error handling
 
-Отсутствие или порча `source_map.json` не должны ронять прокси: карта грузится
-в `try`, при неудаче остаётся пустой, и прокси ведёт себя как сегодня.
-Весь `rewrite_sources` тоже обёрнут так, что любое исключение возвращает исходный
-`result` нетронутым. Рабочая S3-ссылка лучше сломанного ответа MCP.
+A missing or corrupt `source_map.json` must not bring the adapter down: the map is
+loaded inside a `try`, stays empty on failure, and the adapter then behaves exactly
+as it does today. `rewrite_sources` as a whole is likewise wrapped so that any
+exception returns the original `result` untouched. A working S3 link beats a broken
+MCP response.
 
-### Тестирование
+### Testing
 
-- `mcp/test_rewrite.py` — юнит-тесты `rewrite_sources` на зафиксированном сэмпле
-  реального ответа шлюза: точное совпадение, фолбэк, пустая карта,
-  битая структура ответа, невалидный JSON внутри `content[0].text`,
-  `content` с нетекстовыми элементами. Сеть не используется.
-- Тесты нормализации и скоринга на паре «S3-слуг ↔ имя в pubdb» из разведки.
-- Smoke-проверка: N случайных ссылок из готовой карты отдают `200 application/pdf`.
-- End-to-end: реальный `tools/call` через прокси, глазами — что в выдаче нет
-  ни одного `s3.eu-central-1.amazonaws.com` в полях ссылок.
+- `mcp/test_rewrite.py` — unit tests for `rewrite_sources` against a recorded sample
+  of a real Gateway response: exact match, fallback, empty map, malformed response
+  structure, invalid JSON inside `content[0].text`, and `content` holding non-text
+  elements. No network access.
+- Tests for normalisation and scoring on the "S3 slug ↔ pubdb filename" pair found
+  during investigation.
+- Smoke check: N random links from the finished map return `200 application/pdf`.
+- End-to-end: a real `tools/call` through the adapter, inspected by eye for the
+  absence of any `s3.eu-central-1.amazonaws.com` in the link fields.
 
-## Фаза 2 — метаданные Knowledge Base
+## Phase 2 — Knowledge Base metadata
 
-Та же карта переиспользуется: для каждого объекта генерируется соседний
-`<key>.metadata.json` вида
+The same map is reused: for each object a sibling `<key>.metadata.json` is generated,
 
 ```json
 {"metadataAttributes": {"source_url": "...", "publication_date": "...", "language": "de"}}
 ```
 
-затем sync в бакет и re-ingest data source. Это чинит источники для **всех**
-клиентов шлюза, а не только для нашего, и заодно исправляет неверный
-`_language_code: "en"` на немецких документах.
+followed by a sync to the bucket and a data source re-ingest. This fixes sources for
+**every** client of the Gateway rather than only ours, and along the way corrects the
+incorrect `_language_code: "en"` on German documents.
 
-Требует прав на запись в бакет и на запуск ingestion job. Делается после фазы 1,
-чтобы быстрый результат не зависел от доступов.
+It requires write access to the bucket and permission to start an ingestion job. It
+comes after phase 1 so that the quick win does not depend on those permissions.
 
-## Что осознанно не делаем
+## Deliberately out of scope
 
-- Не строим резолвер, ходящий в поисковик в рантайме: это задержка, ключи API
-  и внешняя зависимость в горячем пути ради случая, который закрывается картой.
-- Не подставляем страницы-обёртки `.exturl.html`: лишний клик до PDF и хрупкий URL.
-- Не переписываем `documentId`.
-- Не чиним поиск на новом `www.bfe.admin.ch`: рабочего search-эндпоинта у него
-  не нашлось, а pubdb закрывает задачу лучше.
+- No resolver that queries a search engine at runtime: that means latency, API keys
+  and an external dependency on the hot path, for a case the map already covers.
+- No `.exturl.html` wrapper pages: an extra click to reach the PDF, and a brittle URL.
+- No rewriting of `documentId`.
+- No fixing of search on the new `www.bfe.admin.ch`: it has no working search
+  endpoint that we could find, and pubdb serves the purpose better.
