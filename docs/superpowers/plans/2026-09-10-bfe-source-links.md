@@ -1047,6 +1047,7 @@ import argparse
 import io
 import json
 import re
+import ssl
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
@@ -1055,6 +1056,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
+import certifi
 from pypdf import PdfReader
 
 from source_match import S3Key, coverage, deslugify, parse_s3_key
@@ -1064,8 +1066,17 @@ USER_AGENT = "Open-Energy-Knowledge-Gateway/1.0 source-map-builder"
 DEFAULT_INDEX_PATH = Path(__file__).with_name("pubdb_index.json")
 DEFAULT_KEYS_PATH = Path(__file__).with_name("keys.txt")
 DEFAULT_MAP_PATH = Path(__file__).with_name("source_map.json")
+# Candidates from an exact filename-date match are a small, trustworthy set.
 CONTENT_THRESHOLD = 0.5
+# The Last-Modified window yields up to 198 candidates, so demand that every
+# title token appears in the PDF before believing the match.
+MTIME_CONTENT_THRESHOLD = 1.0
 MTIME_WINDOWS_DAYS = (14, 90)
+
+# The python.org framework build ships no CA bundle: ssl.get_default_verify_paths()
+# reports cafile=None and every HTTPS call fails CERTIFICATE_VERIFY_FAILED, even
+# though curl to the same host succeeds. certifi supplies the trust store.
+_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 # pubdb filenames carry dates in several layouts; all of these occur.
 _DATE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -1138,7 +1149,9 @@ def fetch_pdf_text(pubdb_id: int, timeout: float = 60.0) -> str:
         pubdb_url(pubdb_id), headers={"User-Agent": USER_AGENT}
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(
+            request, timeout=timeout, context=_SSL_CONTEXT
+        ) as response:
             body = response.read()
         reader = PdfReader(io.BytesIO(body))
         title = (reader.metadata or {}).get("/Title", "") or ""
@@ -1154,7 +1167,9 @@ def verify(pubdb_id: int, timeout: float = 20.0) -> bool:
         pubdb_url(pubdb_id), method="HEAD", headers={"User-Agent": USER_AGENT}
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(
+            request, timeout=timeout, context=_SSL_CONTEXT
+        ) as response:
             content_type = response.headers.get("Content-Type", "")
             return response.status == 200 and content_type.startswith("application/pdf")
     except (urllib.error.HTTPError, urllib.error.URLError, OSError):
@@ -1182,12 +1197,15 @@ def resolve(parsed: S3Key, index: dict[str, dict]) -> dict[str, Any] | None:
         if not ids:
             continue
 
-        if len(ids) == 1:
+        # Only the date path may trust a lone candidate; an mtime window hit
+        # is weak evidence and still has to earn it on content.
+        if source == "date" and len(ids) == 1:
             return {"pubdb_id": ids[0], "match": source, "score": 1.0}
 
+        threshold = CONTENT_THRESHOLD if source == "date" else MTIME_CONTENT_THRESHOLD
         scored = [(coverage(title, fetch_pdf_text(i)), i) for i in ids]
         best_score, best_id = max(scored)
-        if best_score >= CONTENT_THRESHOLD:
+        if best_score >= threshold:
             return {
                 "pubdb_id": best_id,
                 "match": f"{source}+content",
