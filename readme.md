@@ -19,18 +19,24 @@ the infrastructure that already existed. What the team built on top of it:
 | --- | --- |
 | [`mcp-gateway/`](mcp-gateway/README.md) | The MCP server. It calls Bedrock `Retrieve` directly and turns the raw retrieval response into ranked passages with source attribution, public PDF download URLs, and per-passage annotations (what the numbers measure, which years they cover, whether they are projections or were cut off mid-chunk). It exposes three tools: `search_energy_knowledge`, `get_metric_timeline` and `get_chart_data`. |
 | [`infra/deploy-lambda.sh`](infra/deploy-lambda.sh) | Deploys that server as a Lambda function that only the gateway's IAM role may invoke, with a hard concurrency cap and a one-command kill switch. It has no URL and no HTTP route of any kind. |
-| [`infra/create-gateway.sh`](infra/create-gateway.sh) | The AgentCore Gateway clients actually talk to, as a single re-runnable script. It is not the `sandbox-bfe-public-kb` gateway described below. |
+| [`infra/create-gateway.sh`](infra/create-gateway.sh) | The AgentCore Gateway clients actually talk to, as a single re-runnable script. It is not the `sandbox-bfe-public-kb` gateway described in the brief below — that one has since been deleted. |
 | `gateway_client.py`, `list_tools.py`, `query_gateway.py`, `test_gateway.py` | A dependency-light reference client and three scripts that exercise the deployed gateway end to end. |
 
 ## The shape of it
 
 ```text
-MCP client ──(Cognito JWT)──▶ AgentCore Gateway ──(Lambda Invoke)──▶ MCP server
-                                                                     Lambda
-                                                                        │
-                                                              (execution role, IAM)
-                                                                        ▼
-                                                         Bedrock KB-bfe-public
+MCP client ──(no credential)──▶ AgentCore Gateway ──(Lambda Invoke)──▶ MCP server
+                                                                       Lambda
+                                                                          │
+                                                                (execution role, IAM)
+                                                                          ▼
+                                                           Bedrock KB-bfe-public
+```
+
+The live endpoint, open to any MCP client:
+
+```text
+https://bfe-energy-knowledge-open-v6rj5uttek.gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp
 ```
 
 The gateway sits **in front of** the MCP server. That is worth stating because
@@ -42,10 +48,16 @@ retrieval parameters a property of the question rather than of the gateway.
 
 Three consequences follow, and all three are deliberate:
 
-- **The endpoint is authenticated, not open.** Reaching it needs a Cognito
-  `client_credentials` token. An earlier design served it anonymously through
-  CloudFront; that has been torn down. Access control is now the gateway's job,
-  which is where it belongs if this ever serves more than one consumer.
+- **The endpoint is open — the "Open" in the project name is literal.** No
+  token, no signup: the gateway runs with `authorizerType: NONE`. It publishes
+  public federal documents, and requiring a credential to read public data
+  makes the thing harder to consume without making it safer. The cost is that
+  there is no per-caller brake, so the Lambda's reserved-concurrency cap is the
+  only thing bounding a runaway client — see the concurrency section of
+  [`mcp-gateway/README.md`](mcp-gateway/README.md). The Cognito pool below is
+  kept as the fallback: a JWT-authorized gateway is one
+  `AUTHORIZER_TYPE=CUSTOM_JWT` away if open access is ever abused (it is a new
+  gateway and a new URL — AWS refuses to change the authorizer on a live one).
 - **The `bfe-public-knowledge___Retrieve` tool is gone.** Clients call
   `bfe-energy___search_energy_knowledge` and its two siblings instead. They
   return the same corpus, deduplicated, source-attributed and annotated.
@@ -82,6 +94,13 @@ reason above.
 
 
 # Starting Point
+
+> **Note (2026-09-10):** this brief describes the starting infrastructure as
+> handed out. The `sandbox-bfe-public-kb` gateway, its `Retrieve` tool and the
+> Cognito-JWT inbound auth it describes have since been superseded by the open
+> gateway above and deleted from the account. The S3 collection, the knowledge
+> base and the Cognito pool still exist; the pool secures nothing today and is
+> kept only as the fallback for re-enabling authenticated access.
 
 The basic AWS infrastructure is already available so that the team can focus on the actual challenge rather than infrastructure setup.
 

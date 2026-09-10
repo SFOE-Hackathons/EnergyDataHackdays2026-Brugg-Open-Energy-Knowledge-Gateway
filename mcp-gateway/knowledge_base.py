@@ -180,9 +180,10 @@ class KnowledgeBaseClient:
 
         self._attach_download_urls(cleaned)
 
-        for rank, item in enumerate(cleaned, start=1):
-            item["rank"] = rank
-
+        # No `rank` field. The list order carries it for a single search, and
+        # the tools that pool several searches (get_metric_timeline,
+        # get_chart_data) would present a per-search rank in a flat combined
+        # list, where it reads as a global ranking it is not.
         return cleaned
 
     def _attach_download_urls(self, results: list[dict]) -> None:

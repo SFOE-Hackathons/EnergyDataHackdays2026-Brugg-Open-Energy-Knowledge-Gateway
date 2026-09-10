@@ -136,7 +136,7 @@ Ad-hoc semantic search. Returns ranked, verbatim passages.
 | `max_results` | int | 10 | 1–25 |
 | `source_fields` | `"core"` \| `"all"` | `"core"` | see [`source_fields`](#source_fields--core-default-or-all) |
 
-Returns `{result_count, sources, results}`, each result `{rank, score, text,
+Returns `{result_count, sources, results}`, each result `{score, text,
 source_id}` plus the annotations above — resolve `source_id` against the
 top-level `sources` object. Results are deduplicated before truncation, so
 `max_results` distinct passages come back rather than `max_results` slots that
@@ -764,8 +764,10 @@ and `nextToken`.
 
 Normalization flattens each hit into the `{score, text, source}` shape above,
 sorts by score descending with an explicit tie-break on title, deduplicates,
-truncates to `max_results`, resolves public download URLs, then assigns `rank`
-from 1. Deduplication happens *before* the truncation — the corpus files some
+truncates to `max_results`, then resolves public download URLs. There is no
+`rank` field — list order carries it, and the pooling tools would otherwise
+show a per-search rank in a flat combined list, where it reads as a global
+ranking it is not. Deduplication happens *before* the truncation — the corpus files some
 publications under more than one document name, so a query routinely retrieves
 one passage twice, and deduplicating afterwards would return fewer results than
 asked for.
