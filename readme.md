@@ -1,26 +1,20 @@
 # Open Energy Knowledge Gateway
 
+### Challenge: 
+![Slide 1](slides/Folie1.PNG)
+![Slide 2](slides/Folie2.PNG)
+![Slide 3](slides/Folie3.PNG)
+![Slide 4](slides/Folie4.PNG)
+
 ## Local Bedrock MCP server
 
-`mcp-server.py` exposes an `ask_question` MCP tool backed by the Bedrock
-Knowledge Base named `KB-bfe-public`. AWS credentials are read from the normal
-AWS credential chain. The IAM identity needs permission to retrieve from the
-Knowledge Base and to list Knowledge Bases when `KNOWLEDGE_BASE_ID` is not set.
+`mcp-server.py` exposes a `bfe-public-knowledge___Retrieve` MCP tool backed by the Bedrock
+Knowledge Base named `KB-bfe-public`.
 
-Install the server dependencies:
+Install dependencies:
 
 ```bash
 ./bin/pip install boto3 flashrank
-```
-
-The server retrieves six candidates from Bedrock, reranks them locally with
-FlashRank, and returns only the requested `top_k` one or two chunks. This keeps
-the context sent to a local Ollama model small.
-
-Run over stdio:
-
-```bash
-AWS_REGION=eu-central-1 ./bin/python mcp-server.py
 ```
 
 Run as a Streamable HTTP MCP server:
@@ -29,15 +23,12 @@ Run as a Streamable HTTP MCP server:
 MCP_TRANSPORT=streamable-http PORT=8000 ./bin/python mcp-server.py
 ```
 
-Set `KNOWLEDGE_BASE_ID` to the actual Bedrock Knowledge Base ID to skip name
-resolution. `KNOWLEDGE_BASE_NAME` can be used when the display name differs
-from `KB-bfe-public`.
-
-### Challenge: 
-![Slide 1](slides/Folie1.PNG)
-![Slide 2](slides/Folie2.PNG)
-![Slide 3](slides/Folie3.PNG)
-![Slide 4](slides/Folie4.PNG)
+The local HTTP server simulates the model-facing auth flow with a development
+bearer token. The default token is `local-development-token`; set
+`MCP_DEV_TOKEN` to override it in both the server and local client environment.
+The server accepts only `Authorization: Bearer <token>` requests with that
+token. This local token is separate from the Cognito flow used by the remote
+AgentCore Gateway and must not be used in production.
 
 # Weitere Infos
 Login-URL fuer die Konsole:
@@ -66,7 +57,6 @@ Only public information is included in the Hackathon knowledge base.
 
 A managed Amazon Bedrock Knowledge Base has already been created:
 
-```text
 KB-bfe-public
 ```
 
@@ -101,7 +91,6 @@ Target:
 bfe-public-knowledge
 ```
 
-The Managed Knowledge Base is exposed through the Gateway as an MCP tool:
 
 ```text
 bfe-public-knowledge___Retrieve
@@ -113,7 +102,6 @@ Inbound access to the Gateway is protected using:
 
 ```text
 Amazon Cognito
-OAuth 2.0
 JWT
 client_credentials flow
 ```
@@ -141,7 +129,6 @@ MCP tools/call
     ↓
 Bedrock Knowledge Base
     ↓
-SFOE documents
     ↓
 Relevant passages + sources + metadata
 ```
@@ -173,9 +160,9 @@ The Hackathon team should explore both the technical implementation and the broa
 
 # Suggested Next Steps
 
+
 ## 1. Connect a Real MCP Client
 
-Move beyond the technical Python test and connect one or more real MCP-compatible applications.
 
 Possible examples:
 
@@ -197,7 +184,6 @@ SFOE Knowledge Base
 Useful result
 ```
 
----
 
 ## 2. Build an AI Agent on Top
 
@@ -217,7 +203,6 @@ Example:
 ```text
 User:
 "What role does hydropower play in Switzerland?"
-
        ↓
 
 AI Agent
@@ -247,7 +232,6 @@ The current retrieval results already provide information such as:
 
 Explore how this information should be presented to an end user.
 
-Questions to investigate:
 
 * How should citations be displayed?
 * Should users be able to open the original SFOE publication?
@@ -269,7 +253,6 @@ language
 document_type
 topic
 source_url
-publisher
 ```
 
 An important goal could be to link retrieved knowledge back to the **original public SFOE webpage**, rather than only the S3 object.
@@ -289,7 +272,6 @@ What are Switzerland's renewable electricity targets?
 
 How has photovoltaic production developed in Switzerland?
 
-Welche Rolle spielt Wasserstoff in der Schweizer Energiepolitik?
 
 Quels sont les objectifs suisses en matière d'énergie renouvelable?
 ```
@@ -309,7 +291,6 @@ Evaluate:
 ## 6. Test Interoperability
 
 A central hypothesis of this challenge is:
-
 > **One knowledge gateway can serve multiple independent AI applications.**
 
 A particularly strong Hackathon result would therefore connect **two different clients or agents** to the same MCP Gateway.
@@ -324,7 +305,6 @@ AI Agent B ─────┼── MCP Gateway ── SFOE Knowledge
 Custom App ─────┘
 ```
 
-If this works, we demonstrate that organisations do not necessarily need to build separate RAG infrastructures around the same public knowledge.
 
 ---
 
@@ -340,7 +320,6 @@ Discuss questions such as:
 * How should access be controlled?
 * Should the service be completely public?
 * How should usage and cost be limited?
-* How can users know when a source was last updated?
 * What service level would an AI application expect?
 * What responsibilities remain with the consuming AI application?
 
@@ -356,7 +335,6 @@ The work can be split into parallel workstreams.
 
 **Focus:** technical MCP integration
 
-Tasks:
 
 * understand the existing AgentCore Gateway
 * inspect available MCP tools
@@ -376,7 +354,6 @@ Tasks:
 
 * connect an AI agent to the MCP Gateway
 * build a simple user-facing use case
-* test tool discovery
 * generate answers from retrieved knowledge
 * present citations and sources
 * ideally connect more than one independent client

@@ -1,4 +1,7 @@
 import os
+import asyncio
+import hmac
+import time
 from functools import lru_cache
 from typing import Any
 
@@ -6,16 +9,50 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from flashrank import Ranker, RerankRequest
 from mcp.server.mcpserver import MCPServer
+from mcp.server.auth.provider import AccessToken
+from mcp.server.auth.settings import AuthSettings
 
 
 DEFAULT_KNOWLEDGE_BASE_NAME = "KB-bfe-public"
 DEFAULT_REGION = "eu-central-1"
-RETRIEVAL_COUNT = 6
+RETRIEVAL_COUNT = 2
 DEFAULT_TOP_K = 2
+DEFAULT_DEV_TOKEN = "local-development-token"
+DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
+
+
+class LocalTokenVerifier:
+    """Development-only bearer validation for the local model-facing server."""
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        await asyncio.sleep(0)
+        expected_token = os.getenv("MCP_DEV_TOKEN", DEFAULT_DEV_TOKEN)
+        if not hmac.compare_digest(token, expected_token):
+            return None
+
+        return AccessToken(
+            token=token,
+            client_id="local-model",
+            subject="local-model",
+            scopes=["mcp"],
+            expires_at=int(time.time()) + 3600,
+            resource=os.getenv("MCP_RESOURCE_URL", f"{DEFAULT_SERVER_URL}/mcp"),
+        )
 
 reranker = Ranker()
 
-mcp = MCPServer(name="open-energy-knowledge-gateway")
+mcp = MCPServer(
+    name="open-energy-knowledge-gateway",
+    token_verifier=LocalTokenVerifier(),
+    auth=AuthSettings(
+        issuer_url=os.getenv("MCP_ISSUER_URL", DEFAULT_SERVER_URL),
+        resource_server_url=os.getenv(
+            "MCP_RESOURCE_URL", f"{DEFAULT_SERVER_URL}/mcp"
+        ),
+        required_scopes=["mcp"],
+        validate_token_resource=True,
+    ),
+)
 
 
 @lru_cache(maxsize=1)
@@ -23,8 +60,18 @@ def bedrock_agent_client():
     return boto3.client(
         "bedrock-agent-runtime",
         region_name=os.getenv("AWS_REGION", DEFAULT_REGION),
-        access_key=os.getenv("AWS_ACCESS_KEY_ID"),
-        secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    )
+
+
+@lru_cache(maxsize=1)
+def bedrock_control_client():
+    return boto3.client(
+        "bedrock-agent",
+        region_name=os.getenv("AWS_REGION", DEFAULT_REGION),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
 
 
@@ -35,7 +82,7 @@ def knowledge_base_id() -> str:
         return configured_id
 
     name = os.getenv("KNOWLEDGE_BASE_NAME", DEFAULT_KNOWLEDGE_BASE_NAME)
-    client = bedrock_agent_client()
+    client = bedrock_control_client()
     paginator = client.get_paginator("list_knowledge_bases")
     for page in paginator.paginate():
         for knowledge_base in page.get("knowledgeBaseSummaries", []):
@@ -81,17 +128,27 @@ def select_top_results(
     selected = []
     for passage in reranked[:top_k]:
         result = dict(by_id[passage["id"]])
-        result["rerankScore"] = passage.get("score")
+        result["rerankScore"] = (
+            float(passage["score"])
+            if passage.get("score") is not None
+            else None
+        )
         selected.append(result)
     return selected
 
 
-@mcp.tool()
-def ask_question(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
+@mcp.tool(
+    name="bfe-public-knowledge___Retrieve",
+    description="Retrieve information from the BFE public energy knowledge base.",
+)
+def retrieve(
+    retrievalQuery: dict[str, Any],
+    top_k: int = DEFAULT_TOP_K,
+) -> dict[str, Any]:
     """Retrieve relevant public Swiss energy knowledge for a question."""
-    question = question.strip()
+    question = str(retrievalQuery.get("text", "")).strip()
     if not question:
-        raise ValueError("question must not be empty")
+        raise ValueError("retrievalQuery.text must not be empty")
     if not 1 <= top_k <= 2:
         raise ValueError("top_k must be 1 or 2")
 
@@ -100,8 +157,12 @@ def ask_question(question: str, top_k: int = DEFAULT_TOP_K) -> dict[str, Any]:
             knowledgeBaseId=knowledge_base_id(),
             retrievalQuery={"text": question},
             retrievalConfiguration={
+                "managedSearchConfiguration": {
+                    "numberOfResults": RETRIEVAL_COUNT
+                },
                 "vectorSearchConfiguration": {
                     "numberOfResults": RETRIEVAL_COUNT,
+                    "overrideSearchType": "HYBRID"
                 }
             },
         )

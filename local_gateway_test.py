@@ -12,8 +12,9 @@ TOKEN_URL = (
 GATEWAY_URL = (
     # "https://sandbox-bfe-public-kb-8thmswsvit."
     # "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
-    "https://localhost:8080/mcp"
+    "http://127.0.0.1:8000/mcp"
 )
+LOCAL_DEV_TOKEN = os.getenv("MCP_DEV_TOKEN", "local-development-token")
 MCP_PROTOCOL_VERSION = "2026-07-28"
 TOOL_NAME = "bfe-public-knowledge___Retrieve"
 TOP_K = 2
@@ -38,6 +39,9 @@ TOOLS = [{
 
 
 def fetch_access_token() -> str:
+    if GATEWAY_URL.startswith("http://127.0.0.1"):
+        return LOCAL_DEV_TOKEN
+
     response = requests.post(
         TOKEN_URL,
         data={
@@ -109,43 +113,98 @@ def select_top_chunks(question: str, result: dict, top_k: int = TOP_K) -> list[d
         RerankRequest(query=question, passages=passages)
     )
     return [
-        {"text": passage["text"], "score": passage.get("score")}
+        {
+            "text": passage["text"],
+            "score": float(passage["score"])
+            if passage.get("score") is not None
+            else None,
+        }
         for passage in reranked[:top_k]
     ]
 
 
+def normalize_tool_arguments(arguments: dict, fallback_question: str) -> dict:
+    retrieval_query = arguments.get("retrievalQuery", {})
+    if isinstance(retrieval_query, dict):
+        query = (
+            retrieval_query.get("text")
+            or retrieval_query.get("query")
+            or retrieval_query.get("question")
+        )
+    else:
+        query = retrieval_query
+
+    return {
+        "retrievalQuery": {
+            "text": str(query or fallback_question).strip(),
+        },
+    }
+
+
 def run(model: str, gateway_url: str, access_token: str):
+    question = "How has hydroenergy production developed in Switzerland?"
+    original_question = question
     messages = [
-        {"role": "system", "content": "You are a helpful assistant, that can help with retrieving information from the energy knowledge gateway."},
-        {"role": "user", "content": "{retrievalQuery: {\"text\": \"How has photovoltaic production developed in Switzerland?\"}}"},
+        {
+            "role": "system",
+            "content": (
+                "You are a helpful assistant. Use the energy knowledge gateway "
+                "to answer questions about Swiss energy."
+            ),
+        },
+        {"role": "user", "content": question},
     ]
     response = ollama.chat(model=model, messages=messages, tools=TOOLS, options={"num_ctx": 2048})
     tool_calls = response.message.tool_calls or []
+    model_requested_tool = bool(tool_calls)
 
-    if not tool_calls:
-        print("Ollama response:", response)
-        return
+    if model_requested_tool:
+        messages.append(response.message)
+    else:
+        # Some local models reason about a tool but stop without emitting a
+        # structured tool call. Use the known tool contract as a fallback.
+        tool_calls = [{
+            "function": {
+                "arguments": {"retrievalQuery": {"text": question}},
+            },
+        }]
 
-    messages.append(response.message)
     for tool_call in tool_calls:
+        if isinstance(tool_call, dict):
+            arguments = tool_call["function"]["arguments"]
+        else:
+            arguments = tool_call.function.arguments
+        if isinstance(arguments, str):
+            arguments = json.loads(arguments)
+        arguments = normalize_tool_arguments(arguments, original_question)
         result = call_remote_tool(
             gateway_url,
             access_token,
-            tool_call.function.arguments,
+            arguments,
         )
-        question = tool_call.function.arguments["retrievalQuery"]["text"]
+        question = arguments["retrievalQuery"]["text"]
         top_chunks = select_top_chunks(question, result)
+        context_message = json.dumps({
+            "question": question,
+            "top_k": len(top_chunks),
+            "results": top_chunks,
+        })
         messages.append({
-            "role": "tool",
-            "content": json.dumps({
-                "question": question,
-                "top_k": len(top_chunks),
-                "results": top_chunks,
-            }),
+            "role": "tool" if model_requested_tool else "user",
+            "content": context_message,
         })
 
-    response = ollama.chat(model=model, messages=messages, options={"num_ctx": 2048})
-    print("Ollama response:", response)
+    print("Ollama response: ", end="", flush=True)
+    response_stream = ollama.chat(
+        model=model,
+        messages=messages,
+        options={"num_ctx": 2048},
+        stream=True,
+    )
+    for response_chunk in response_stream:
+        content = response_chunk.message.content or ""
+        print(content, end="", flush=True)
+    print()
 
 
 if __name__ == "__main__":    
