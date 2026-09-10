@@ -1,9 +1,11 @@
 import os
 import json
-import requests
+
 import boto3
+import requests
 
 from dotenv import load_dotenv
+from botocore.exceptions import BotoCoreError, ClientError
 
 
 # ============================================================
@@ -11,86 +13,93 @@ from dotenv import load_dotenv
 # ============================================================
 # Build a simple SFOE / BFE knowledge assistant.
 #
-# The application:
-#
-# 1. Takes a natural-language question from the user.
-# 2. Authenticates with Amazon Cognito.
-# 3. Calls the SFOE MCP retrieval tool.
-# 4. Retrieves relevant chunks from the SFOE Knowledge Base.
-# 5. Sends the retrieved chunks to an LLM in Amazon Bedrock.
-# 6. Generates one clear answer grounded in the retrieved sources.
-# 7. Displays the final answer and the supporting sources.
-#
-#
 # DATA FLOW
-# ============================================================
-#
+# ------------------------------------------------------------
 # User question
 #     ↓
-# Cognito authentication
+# SFOE MCP Gateway
 #     ↓
-# MCP Gateway
+# search_energy_knowledge
 #     ↓
-# SFOE Bedrock Knowledge Base
+# Ranked SFOE passages + source metadata
 #     ↓
-# Relevant document chunks
+# Amazon Bedrock LLM
 #     ↓
-# Bedrock LLM
+# Grounded answer with [1], [2], ... citations
 #     ↓
-# Final answer + citations
+# Official SFOE source links
 #
+# NOTE
+# ------------------------------------------------------------
+# The current "bfe-energy-knowledge-open" Gateway is configured
+# without inbound authorization. Cognito is therefore optional
+# in this version. If Cognito variables exist in .env, the app
+# can still obtain and send a token.
 # ============================================================
 
 
 # ============================================================
-# 1. LOAD CONFIGURATION FROM .env
+# 1. LOAD CONFIGURATION
 # ============================================================
-# INPUT:
+# GOAL
+# ------------------------------------------------------------
+# Load runtime configuration from .env.
+#
+# INPUT
+# ------------------------------------------------------------
+# Required:
+#   GATEWAY_URL
+#   BEDROCK_MODEL_ID
+#
+# Optional:
+#   AWS_REGION
+#   TOP_K_RESULTS
 #   CLIENT_ID
 #   CLIENT_SECRET
 #   TOKEN_URL
-#   BEDROCK_MODEL_ID
-#   AWS_REGION
 #
-# OUTPUT:
-#   Python variables used by the application.
+# OUTPUT
+# ------------------------------------------------------------
+# Python variables used by the application.
 #
-# IMPORTANT:
-#   .env contains secrets and must NOT be committed to GitHub.
+# IMPORTANT
+# ------------------------------------------------------------
+# .env contains secrets and must NOT be committed to Git.
 # ============================================================
 
 load_dotenv(override=True)
 
-CLIENT_ID = os.environ["CLIENT_ID"]
-CLIENT_SECRET = os.environ["CLIENT_SECRET"]
-TOKEN_URL = os.environ["TOKEN_URL"]
-
+GATEWAY_URL = os.environ["GATEWAY_URL"]
 BEDROCK_MODEL_ID = os.environ["BEDROCK_MODEL_ID"]
+
 AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
+TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
+
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+TOKEN_URL = os.getenv("TOKEN_URL")
 
 
 # ============================================================
-# 2. MCP GATEWAY CONFIGURATION
+# 2. MCP CONFIGURATION
 # ============================================================
-# GOAL:
-#   Define how the application connects to the SFOE MCP Gateway.
+# GOAL
+# ------------------------------------------------------------
+# Define the current SFOE MCP search tool and protocol.
 #
-# OUTPUT:
-#   Gateway endpoint, protocol version, and retrieval tool name.
+# OUTPUT
+# ------------------------------------------------------------
+# TOOL_NAME:
+#   General semantic search over SFOE energy publications.
 # ============================================================
-
-GATEWAY_URL = (
-    "https://sandbox-bfe-public-kb-8thmswsvit."
-    "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
-)
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
 
-TOOL_NAME = "bfe-public-knowledge___Retrieve"
+TOOL_NAME = "bfe-energy___search_energy_knowledge"
 
 
 # ============================================================
-# 3. AUTHENTICATION
+# 3. OPTIONAL COGNITO AUTHENTICATION
 # ============================================================
 
 
@@ -98,25 +107,20 @@ def fetch_access_token():
     """
     GOAL
     ----------------------------------------------------------
-    Authenticate the application with Amazon Cognito.
+    Obtain a Cognito OAuth access token when Cognito
+    configuration is available.
 
     INPUT
     ----------------------------------------------------------
-    CLIENT_ID
-    CLIENT_SECRET
-    TOKEN_URL
+    CLIENT_ID, CLIENT_SECRET, TOKEN_URL from .env.
 
     OUTPUT
     ----------------------------------------------------------
-    OAuth access token as a string.
-
-    PROCESS
-    ----------------------------------------------------------
-    1. Send CLIENT_ID and CLIENT_SECRET to Cognito.
-    2. Use OAuth client_credentials flow.
-    3. Receive an access token.
-    4. Return the token to the application.
+    Access token string, or None when Cognito is not configured.
     """
+
+    if not all([CLIENT_ID, CLIENT_SECRET, TOKEN_URL]):
+        return None
 
     response = requests.post(
         TOKEN_URL,
@@ -135,48 +139,27 @@ def fetch_access_token():
 
 
 # ============================================================
-# 4. RETRIEVE SFOE KNOWLEDGE THROUGH MCP
+# 4. BUILD MCP HEADERS
 # ============================================================
 
 
-def retrieve(gateway_url, access_token, question):
+def build_mcp_headers(access_token=None):
     """
     GOAL
     ----------------------------------------------------------
-    Search the SFOE Knowledge Base through the MCP Gateway.
+    Build HTTP headers for the MCP tools/call request.
 
     INPUT
     ----------------------------------------------------------
-    gateway_url:
-        URL of the MCP Gateway.
-
     access_token:
-        Cognito access token.
-
-    question:
-        User's natural-language question.
+        Optional Cognito token.
 
     OUTPUT
     ----------------------------------------------------------
-    List of retrieved SFOE document chunks.
-
-    Each result typically contains:
-        - retrieved text
-        - document metadata
-        - source URL
-        - relevance score
-
-    PROCESS
-    ----------------------------------------------------------
-    1. Build the MCP request.
-    2. Send the user's question to the Retrieve tool.
-    3. Receive the MCP response.
-    4. Parse the nested JSON response.
-    5. Return only the retrieval results.
+    Dictionary of HTTP headers.
     """
 
     headers = {
-        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
         "Accept": "application/json, text/event-stream",
         "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
@@ -184,13 +167,52 @@ def retrieve(gateway_url, access_token, question):
         "Mcp-Name": TOOL_NAME,
     }
 
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+
+    return headers
+
+
+# ============================================================
+# 5. SEARCH SFOE KNOWLEDGE THROUGH MCP
+# ============================================================
+
+
+def retrieve(question, access_token=None):
+    """
+    GOAL
+    ----------------------------------------------------------
+    Search official SFOE publications through the current MCP
+    tool.
+
+    INPUT
+    ----------------------------------------------------------
+    question:
+        Natural-language user question.
+
+    access_token:
+        Optional Cognito token.
+
+    OUTPUT
+    ----------------------------------------------------------
+    Complete search response from search_energy_knowledge.
+
+    Current response structure:
+        {
+            "result_count": ...,
+            "sources": {...},
+            "results": [...]
+        }
+    """
+
     payload = {
         "jsonrpc": "2.0",
-        "id": "retrieve-request",
+        "id": "sfoe-search-request",
         "method": "tools/call",
         "params": {
             "name": TOOL_NAME,
-            "arguments": {"retrievalQuery": {"text": question}},
+            # The NEW SFOE search tool expects "query".
+            "arguments": {"query": question},
             "_meta": {
                 "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
                 "io.modelcontextprotocol/clientInfo": {
@@ -203,8 +225,8 @@ def retrieve(gateway_url, access_token, question):
     }
 
     response = requests.post(
-        gateway_url,
-        headers=headers,
+        GATEWAY_URL,
+        headers=build_mcp_headers(access_token),
         json=payload,
         timeout=120,
     )
@@ -213,115 +235,232 @@ def retrieve(gateway_url, access_token, question):
 
     data = response.json()
 
-    # MCP returns the retrieval result as a JSON string
-    # inside result -> content -> text.
-    text = data["result"]["content"][0]["text"]
+    # Catch JSON-RPC / MCP errors clearly.
+    if "error" in data:
+        raise RuntimeError(
+            "MCP Gateway error:\n"
+            + json.dumps(data["error"], indent=2, ensure_ascii=False)
+        )
 
-    retrieval_data = json.loads(text)
+    if "result" not in data:
+        raise RuntimeError(
+            "Unexpected MCP response:\n"
+            + json.dumps(data, indent=2, ensure_ascii=False)
+        )
 
-    return retrieval_data["retrievalResults"]
+    content = data["result"].get("content", [])
+
+    if not content:
+        raise RuntimeError("MCP response contains no content.")
+
+    # Find the first text content block.
+    text_content = None
+
+    for item in content:
+        if isinstance(item, dict) and "text" in item:
+            text_content = item["text"]
+            break
+
+    if text_content is None:
+        raise RuntimeError("MCP response contains no text content.")
+
+    try:
+        search_data = json.loads(text_content)
+
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"The SFOE MCP tool did not return valid JSON:\n{text_content}"
+        ) from error
+
+    return search_data
 
 
 # ============================================================
-# 5. GENERATE A FINAL ANSWER WITH AN LLM
+# 6. NORMALIZE SEARCH RESULTS
 # ============================================================
 
 
-def generate_answer(question, results):
+def prepare_evidence(search_data):
     """
     GOAL
     ----------------------------------------------------------
-    Convert retrieved SFOE document chunks into one clear,
-    user-friendly answer using an LLM in Amazon Bedrock.
+    Convert the new SFOE response structure into a simple list
+    that the LLM and display functions can use.
+
+    INPUT
+    ----------------------------------------------------------
+    search_data:
+        {
+            "result_count": ...,
+            "sources": {...},
+            "results": [...]
+        }
+
+    OUTPUT
+    ----------------------------------------------------------
+    List of normalized evidence items containing:
+        citation_number
+        score
+        text
+        source_id
+        title
+        published_at
+        download_url
+        years_covered
+        bases
+        is_projection
+        is_truncated
+        truncation_reasons
+
+    PROCESS
+    ----------------------------------------------------------
+    Each result has a source_id such as "s1".
+    We resolve that ID through the top-level "sources" object.
+    """
+
+    if not isinstance(search_data, dict):
+        raise RuntimeError("Unexpected SFOE search response type.")
+
+    results = search_data.get("results", [])
+    sources = search_data.get("sources", {})
+
+    evidence = []
+
+    for item in results[:TOP_K_RESULTS]:
+        if not isinstance(item, dict):
+            continue
+
+        source_id = item.get("source_id")
+        source = sources.get(source_id, {}) if source_id else {}
+
+        text = item.get("text") or item.get("passage") or item.get("content") or ""
+
+        if not text.strip():
+            continue
+
+        evidence.append(
+            {
+                "citation_number": len(evidence) + 1,
+                "score": item.get("score", 0),
+                "text": text,
+                "source_id": source_id,
+                "title": (
+                    source.get("title")
+                    or source.get("document_title")
+                    or "Unknown document"
+                ),
+                "published_at": source.get("published_at"),
+                "download_url": source.get("download_url"),
+                "years_covered": item.get("years_covered"),
+                "bases": item.get("bases", []),
+                "is_projection": item.get("is_projection", False),
+                "is_truncated": item.get("is_truncated", False),
+                "truncation_reasons": item.get("truncation_reasons", []),
+            }
+        )
+
+    return evidence
+
+
+# ============================================================
+# 7. BUILD GROUNDED CONTEXT FOR THE LLM
+# ============================================================
+
+
+def build_context(evidence):
+    """
+    GOAL
+    ----------------------------------------------------------
+    Turn normalized SFOE evidence into numbered context blocks.
+
+    INPUT
+    ----------------------------------------------------------
+    evidence:
+        Normalized search results.
+
+    OUTPUT
+    ----------------------------------------------------------
+    One text string containing [Source 1], [Source 2], ...
+    """
+
+    context_parts = []
+
+    for item in evidence:
+        number = item["citation_number"]
+
+        context_parts.append(
+            f"""
+[Source {number}]
+Document: {item["title"]}
+Published: {item["published_at"] or "Unknown"}
+URL: {item["download_url"] or "Not available"}
+Relevance score: {item["score"]}
+Years covered: {item["years_covered"]}
+Projection: {item["is_projection"]}
+Truncated: {item["is_truncated"]}
+
+Passage:
+{item["text"]}
+"""
+        )
+
+    return "\n".join(context_parts)
+
+
+# ============================================================
+# 8. GENERATE A GROUNDED ANSWER WITH BEDROCK
+# ============================================================
+
+
+def generate_answer(question, evidence):
+    """
+    GOAL
+    ----------------------------------------------------------
+    Generate one clear answer using only retrieved SFOE
+    evidence.
 
     INPUT
     ----------------------------------------------------------
     question:
-        Original question entered by the user.
+        User question.
 
-    results:
-        Retrieved SFOE chunks returned by retrieve().
+    evidence:
+        Normalized SFOE passages and metadata.
 
     OUTPUT
     ----------------------------------------------------------
-    One grounded answer as a string.
-
-    Example:
-        "Hydropower remains a central pillar of Swiss
-        electricity supply [1] ..."
-
-    PROCESS
-    ----------------------------------------------------------
-    1. Convert retrieved chunks into structured context.
-    2. Number the sources as [1], [2], [3], ...
-    3. Send question + context to the Bedrock LLM.
-    4. Instruct the LLM to use only retrieved SFOE sources.
-    5. Return the generated answer.
+    Final answer with [1], [2], ... citations.
     """
-
-    # --------------------------------------------------------
-    # Create Bedrock Runtime client
-    # --------------------------------------------------------
-    # IMPORTANT:
-    # boto3 needs AWS credentials with permission to invoke
-    # the selected Bedrock model.
-    # --------------------------------------------------------
 
     bedrock = boto3.client(
         "bedrock-runtime",
         region_name=AWS_REGION,
     )
 
-    # --------------------------------------------------------
-    # Build trusted context for the LLM
-    # --------------------------------------------------------
-
-    context_parts = []
-
-    for i, item in enumerate(results, start=1):
-        metadata = item.get("metadata", {})
-
-        document = metadata.get("_document_title", "Unknown document")
-
-        source = metadata.get("_source_uri", "Unknown source")
-
-        retrieved_text = item["content"]["text"]
-
-        context_parts.append(
-            f"""
-[Source {i}]
-Document: {document}
-URL: {source}
-
-{retrieved_text}
-"""
-        )
-
-    context = "\n".join(context_parts)
-
-    # --------------------------------------------------------
-    # System instructions for grounding
-    # --------------------------------------------------------
+    context = build_context(evidence)
 
     system_prompt = """
 You are an assistant for the Swiss Federal Office of Energy
 (SFOE/BFE) Open Energy Knowledge Gateway.
 
-Answer the user's question using ONLY the provided retrieved
-SFOE sources.
+Answer the user's question using ONLY the provided SFOE
+evidence.
 
 Rules:
-- Do not invent information.
-- Do not add unsupported external knowledge.
-- Cite factual statements using [1], [2], [3], etc.
-- If the retrieved sources are insufficient, clearly say so.
+- Do not invent facts.
+- Do not use unsupported external knowledge.
+- Cite factual claims with [1], [2], [3], etc.
+- Citation numbers must refer to the numbered sources provided.
+- If the evidence is insufficient, clearly say so.
 - Answer in the same language as the user's question.
-- Be concise, clear, and factual.
+- Be concise, clear and factual.
+- If a source has Projection: True, do NOT present its
+  forward-looking statements as measured historical facts.
+- If a source has Truncated: True, treat the passage cautiously
+  because it may be incomplete.
+- Do not create page numbers because page numbers are not
+  available in this corpus.
 """
-
-    # --------------------------------------------------------
-    # User message sent to the LLM
-    # --------------------------------------------------------
 
     user_prompt = f"""
 USER QUESTION:
@@ -329,17 +468,13 @@ USER QUESTION:
 {question}
 
 
-RETRIEVED SFOE SOURCES:
+RETRIEVED SFOE EVIDENCE:
 
 {context}
 
 
-Please answer the user's question using only these sources.
+Answer the question using only this evidence.
 """
-
-    # --------------------------------------------------------
-    # Call Bedrock LLM
-    # --------------------------------------------------------
 
     response = bedrock.converse(
         modelId=BEDROCK_MODEL_ID,
@@ -356,104 +491,108 @@ Please answer the user's question using only these sources.
         },
     )
 
-    # --------------------------------------------------------
-    # Extract generated answer
-    # --------------------------------------------------------
+    # Extract the first text block robustly.
+    content = response["output"]["message"]["content"]
 
-    answer = response["output"]["message"]["content"][0]["text"]
+    for item in content:
+        if isinstance(item, dict) and "text" in item:
+            return item["text"]
 
-    return answer
+    raise RuntimeError("Bedrock returned no text answer.")
 
 
 # ============================================================
-# 6. DISPLAY SUPPORTING SOURCES
+# 9. DISPLAY SUPPORTING SOURCES
 # ============================================================
 
 
-def print_sources(results):
+def print_sources(evidence):
     """
     GOAL
     ----------------------------------------------------------
-    Show the documents used to generate the answer.
+    Show the official SFOE sources supporting the answer.
 
     INPUT
     ----------------------------------------------------------
-    results:
-        Retrieved SFOE chunks.
+    evidence:
+        Normalized evidence list.
 
     OUTPUT
     ----------------------------------------------------------
-    Clean source list shown in the terminal.
-
-    Example:
-
-        [1] document.pdf
-            Score: 0.594
-            URL: https://...
+    Numbered source list matching the LLM citations.
     """
 
     print("\n======================================")
     print("              SOURCES")
     print("======================================")
 
-    if not results:
+    if not evidence:
         print("\nNo sources found.")
         return
 
-    for i, item in enumerate(results, start=1):
-        metadata = item.get("metadata", {})
+    for item in evidence:
+        number = item["citation_number"]
 
-        document = metadata.get("_document_title", "Unknown document")
+        print(f"\n[{number}] {item['title']}")
 
-        source = metadata.get("_source_uri", "No source available")
+        if item["published_at"]:
+            print(f"    Published : {item['published_at']}")
 
-        score = item.get("score", 0)
+        try:
+            print(f"    Score     : {float(item['score']):.3f}")
+        except (TypeError, ValueError):
+            print(f"    Score     : {item['score']}")
 
-        print(f"\n[{i}] {document}")
-        print(f"    Score : {score:.3f}")
-        print(f"    URL   : {source}")
+        if item["download_url"]:
+            print(f"    PDF       : {item['download_url']}")
+
+        if item["is_projection"]:
+            print("    Note      : Contains projection / forward-looking information")
+
+        if item["is_truncated"]:
+            print("    Warning   : Retrieved passage may be truncated")
 
 
 # ============================================================
-# 7. OPTIONAL: DISPLAY FULL RETRIEVED EVIDENCE
+# 10. OPTIONAL: DISPLAY RETRIEVED EVIDENCE
 # ============================================================
 
 
-def print_retrieved_evidence(results):
+def print_retrieved_evidence(evidence):
     """
     GOAL
     ----------------------------------------------------------
-    Show the actual text chunks retrieved from the Knowledge
-    Base.
+    Display the exact retrieved passages for debugging and
+    evaluation.
 
     INPUT
     ----------------------------------------------------------
-    results:
-        Retrieved SFOE chunks.
+    evidence:
+        Normalized evidence list.
 
     OUTPUT
     ----------------------------------------------------------
-    Retrieved text for inspection/debugging.
-
-    NOTE:
-    This is useful for developers and evaluation.
-    A normal end user may not need to see this by default.
+    Retrieved source text and metadata.
     """
 
     print("\n======================================")
     print("        RETRIEVED EVIDENCE")
     print("======================================")
 
-    for i, item in enumerate(results, start=1):
-        retrieved_text = item["content"]["text"]
+    for item in evidence:
+        number = item["citation_number"]
 
-        print(f"\n--- Source {i} ---")
-        print(retrieved_text)
+        print(f"\n--- Source {number} ---")
+        print(f"Document: {item['title']}")
+        print(f"Projection: {item['is_projection']}")
+        print(f"Truncated: {item['is_truncated']}")
+        print()
+        print(item["text"])
         print("-" * 70)
 
 
 # ============================================================
-# 8. MAIN APPLICATION
+# 11. MAIN APPLICATION
 # ============================================================
 
 
@@ -461,7 +600,7 @@ def main():
     """
     GOAL
     ----------------------------------------------------------
-    Control the complete application workflow.
+    Run the complete SFOE RAG workflow.
 
     INPUT
     ----------------------------------------------------------
@@ -469,26 +608,22 @@ def main():
 
     PROCESS
     ----------------------------------------------------------
-    1. Read the user question.
-    2. Authenticate with Cognito.
-    3. Retrieve SFOE knowledge through MCP.
-    4. Send retrieved knowledge to the Bedrock LLM.
-    5. Display the generated answer.
-    6. Display supporting sources.
+    1. Read question.
+    2. Optionally authenticate with Cognito.
+    3. Search SFOE publications through MCP.
+    4. Normalize the new response structure.
+    5. Send top-ranked evidence to Bedrock.
+    6. Display grounded answer.
+    7. Display official SFOE sources.
 
     OUTPUT
     ----------------------------------------------------------
-    - Final grounded answer
-    - Supporting SFOE sources
+    Answer + citations + source links.
     """
 
     print("\n======================================")
     print("   SFOE Open Energy Knowledge Gateway")
     print("======================================")
-
-    # --------------------------------------------------------
-    # USER INPUT
-    # --------------------------------------------------------
 
     question = input("\nAsk SFOE: ").strip()
 
@@ -498,50 +633,55 @@ def main():
 
     try:
         # ----------------------------------------------------
-        # STEP 1: AUTHENTICATION
+        # STEP 1: OPTIONAL AUTHENTICATION
         # ----------------------------------------------------
 
-        print("\n1. Authenticating...")
+        access_token = None
 
-        access_token = fetch_access_token()
-
-        print("   Authentication successful.")
+        if all([CLIENT_ID, CLIENT_SECRET, TOKEN_URL]):
+            print("\n1. Authenticating with Cognito...")
+            access_token = fetch_access_token()
+            print("   Authentication successful.")
+        else:
+            print("\n1. Gateway authentication not required/configured.")
 
         # ----------------------------------------------------
-        # STEP 2: RETRIEVAL / RAG SEARCH
+        # STEP 2: SFOE SEARCH
         # ----------------------------------------------------
 
-        print("\n2. Searching SFOE Knowledge Base...")
+        print("\n2. Searching SFOE energy knowledge...")
 
-        results = retrieve(
-            GATEWAY_URL,
-            access_token,
-            question,
+        search_data = retrieve(
+            question=question,
+            access_token=access_token,
         )
 
-        print(f"   Found {len(results)} relevant document chunks.")
+        evidence = prepare_evidence(search_data)
 
-        # ----------------------------------------------------
-        # Handle empty retrieval
-        # ----------------------------------------------------
+        print(
+            f"   Gateway returned "
+            f"{search_data.get('result_count', len(evidence))} results."
+        )
 
-        if not results:
-            print("\nNo relevant information was found in the SFOE Knowledge Base.")
+        print(f"   Using top {len(evidence)} passages for the answer.")
+
+        if not evidence:
+            print("\nNo relevant information was found in the SFOE knowledge base.")
             return
 
         # ----------------------------------------------------
-        # STEP 3: GENERATE LLM ANSWER
+        # STEP 3: BEDROCK GENERATION
         # ----------------------------------------------------
 
-        print("\n3. Generating grounded answer...")
+        print(f"\n3. Generating grounded answer with {BEDROCK_MODEL_ID}...")
 
         answer = generate_answer(
-            question,
-            results,
+            question=question,
+            evidence=evidence,
         )
 
         # ----------------------------------------------------
-        # STEP 4: DISPLAY FINAL ANSWER
+        # STEP 4: DISPLAY ANSWER
         # ----------------------------------------------------
 
         print("\n======================================")
@@ -554,15 +694,12 @@ def main():
         # STEP 5: DISPLAY SOURCES
         # ----------------------------------------------------
 
-        print_sources(results)
+        print_sources(evidence)
 
-        # ----------------------------------------------------
-        # OPTIONAL:
-        # Uncomment the line below if you want to inspect
-        # the full retrieved chunks during development.
-        # ----------------------------------------------------
-
-        # print_retrieved_evidence(results)
+        # Uncomment during development if you want to inspect
+        # the exact passages sent to the LLM:
+        #
+        # print_retrieved_evidence(evidence)
 
     # ========================================================
     # ERROR HANDLING
@@ -576,13 +713,13 @@ def main():
         print("\nConnection error:")
         print(error)
 
+    except (ClientError, BotoCoreError) as error:
+        print("\nAWS Bedrock error:")
+        print(error)
+
     except KeyError as error:
         print("\nUnexpected response format.")
         print(f"Missing field: {error}")
-
-    except boto3.exceptions.Boto3Error as error:
-        print("\nAWS Bedrock error:")
-        print(error)
 
     except Exception as error:
         print("\nUnexpected error:")
@@ -590,15 +727,17 @@ def main():
 
 
 # ============================================================
-# 9. START APPLICATION
+# 12. START APPLICATION
 # ============================================================
-# INPUT:
-#   Running:
+# INPUT
+# ------------------------------------------------------------
+# Run:
 #
-#       python app.py
+#     python app.py
 #
-# OUTPUT:
-#   Starts the interactive SFOE assistant.
+# OUTPUT
+# ------------------------------------------------------------
+# Starts the interactive SFOE assistant.
 # ============================================================
 
 if __name__ == "__main__":
