@@ -1,3 +1,5 @@
+__pycache__/
+*.pyc
 # .env holds real Cognito client secrets and AWS keys. The glob matters:
 # a bare `.env` line does not cover `.env.bak`, and a backup made while
 # rotating credentials is just as secret as the original.

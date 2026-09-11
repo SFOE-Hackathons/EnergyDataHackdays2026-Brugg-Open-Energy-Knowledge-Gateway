@@ -1,4 +1,10 @@
 # Open Energy Knowledge Gateway
+### Challenge: 
+![Slide 1](slides/Folie1.PNG)
+![Slide 2](slides/Folie2.PNG)
+![Slide 3](slides/Folie3.PNG)
+![Slide 4](slides/Folie4.PNG)
+![Slide 5](slides/Folie5.PNG)
 
 An open MCP endpoint over ~2,400 public publications of the Swiss Federal
 Office of Energy (SFOE/BFE) — reports, studies and statistics in German,
@@ -39,6 +45,7 @@ claude mcp add --transport http energy-knowledge \
   https://bfe-energy-knowledge-open-v6rj5uttek.gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp
 ```
 
+The Hackathon results should therefore be **reproducible, documented and reusable**.
 **Claude (claude.ai / desktop app)** — *Settings → Connectors → Add custom
 connector*, paste the URL as the remote MCP server, leave authentication
 empty, and enable the connector in the chat's tools menu. Custom connectors

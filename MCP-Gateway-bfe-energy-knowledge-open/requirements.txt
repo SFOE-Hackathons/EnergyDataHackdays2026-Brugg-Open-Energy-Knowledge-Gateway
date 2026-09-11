@@ -1,0 +1,18 @@
+mcp>=2.2.0,<3
+requests>=2.31,<3
+
+# The floor is the version this was actually verified against, not a guess.
+# `retrievalConfiguration.managedSearchConfiguration` is a recent addition to
+# the bedrock-agent-runtime service model, and an older botocore rejects it
+# client-side with a ParamValidationError that names the field but not the
+# reason. Check a candidate version before lowering this:
+#
+#   python -c "import boto3;m=boto3.session.Session()._session.get_service_model(
+#     'bedrock-agent-runtime');print(list(m.operation_model('Retrieve')
+#     .input_shape.members['retrievalConfiguration'].members))"
+#
+# The Lambda base image already bundles a boto3, but an older one than the
+# floor above, and the bundled copy is not upgraded in step with the runtime.
+# Installing it here puts a known-good version in the task root, which takes
+# precedence on sys.path over the runtime's.
+boto3>=1.43,<2
