@@ -19,7 +19,9 @@ GATEWAY_URL = config.GATEWAY_URL
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
 
-TOOL_NAME = "bfe-public-knowledge___Retrieve"
+SEARCH_TOOL_NAME = "bfe-energy___search_energy_knowledge"
+METRIC_TIMELINE_TOOL_NAME = "bfe-energy___get_metric_timeline"
+CHART_DATA_TOOL_NAME = "bfe-energy___get_chart_data"
 
 _TOKEN_EXPIRY_SAFETY_MARGIN_SECONDS = 60
 
@@ -86,14 +88,38 @@ _token_cache = _TokenCache()
 
 
 def retrieve(question):
-    """Call the Gateway's Retrieve tool and return the parsed JSON-RPC response."""
+    """Search the SFOE knowledge base and return the parsed JSON-RPC response."""
+    return _call_tool(SEARCH_TOOL_NAME, {"query": question})
+
+
+def get_metric_timeline(metric, start_year, end_year, detail="full", max_results_per_year=None):
+    """Query the SFOE knowledge base once per year for a metric across a
+    year range and return the parsed JSON-RPC response."""
+    arguments = {
+        "metric": metric,
+        "start_year": start_year,
+        "end_year": end_year,
+        "detail": detail,
+    }
+    if max_results_per_year is not None:
+        arguments["max_results_per_year"] = max_results_per_year
+    return _call_tool(METRIC_TIMELINE_TOOL_NAME, arguments)
+
+
+def get_chart_data(topic, max_charts=5):
+    """Fetch structured, parsed chart/table data about a topic and return
+    the parsed JSON-RPC response."""
+    return _call_tool(CHART_DATA_TOOL_NAME, {"topic": topic, "max_charts": max_charts})
+
+
+def _call_tool(tool_name, arguments):
     access_token = _token_cache.get()
-    response = _call_gateway(access_token, question)
+    response = _call_gateway(access_token, tool_name, arguments)
 
     if response.status_code == 401:
         logger.info("Gateway returned 401, refreshing token and retrying once")
         access_token = _token_cache.get(force_refresh=True)
-        response = _call_gateway(access_token, question)
+        response = _call_gateway(access_token, tool_name, arguments)
 
     if response.status_code >= 400:
         raise GatewayError(
@@ -113,27 +139,23 @@ def retrieve(question):
         raise GatewayError("Gateway response was not valid JSON.") from e
 
 
-def _call_gateway(access_token, question):
+def _call_gateway(access_token, tool_name, arguments):
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
         "Accept": "application/json, text/event-stream",
         "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
         "Mcp-Method": "tools/call",
-        "Mcp-Name": TOOL_NAME,
+        "Mcp-Name": tool_name,
     }
 
     payload = {
         "jsonrpc": "2.0",
-        "id": "retrieve-request",
+        "id": "tool-request",
         "method": "tools/call",
         "params": {
-            "name": TOOL_NAME,
-            "arguments": {
-                "retrievalQuery": {
-                    "text": question
-                }
-            },
+            "name": tool_name,
+            "arguments": arguments,
             "_meta": {
                 "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
                 "io.modelcontextprotocol/clientInfo": {
