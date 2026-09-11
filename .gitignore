@@ -1,8 +1,12 @@
-# Created by venv; see https://docs.python.org/3/library/venv.html
-bin/
-include/
-lib/
-pyvenv.cfg
-result.*
-.vscode/
 __pycache__/
+*.pyc
+# .env holds real Cognito client secrets and AWS keys. The glob matters:
+# a bare `.env` line does not cover `.env.bak`, and a backup made while
+# rotating credentials is just as secret as the original.
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
