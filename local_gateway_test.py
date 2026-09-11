@@ -10,14 +10,16 @@ TOKEN_URL = (
     "oauth2/token"
 )
 REMOTE_GATEWAY_URL = (
-    "https://sandbox-bfe-public-kb-8thmswsvit."
+    "https://bfe-energy-knowledge-open-v6rj5uttek."
     "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
 )
 LOCAL_GATEWAY_URL = "http://127.0.0.1:8000/mcp"
 GATEWAY_URL = os.getenv("GATEWAY_URL", LOCAL_GATEWAY_URL)
 LOCAL_DEV_TOKEN = os.getenv("MCP_DEV_TOKEN", "local-development-token")
 MCP_PROTOCOL_VERSION = "2026-07-28"
+# Must match the AgentCore Gateway tool name used by test_gateway.py.
 TOOL_NAME = "bfe-public-knowledge___Retrieve"
+TOOL_SCHEMA = None
 TOP_K = 2
 OLLAMA_CONTEXT_SIZE = 2048
 reranker = Ranker()
@@ -111,9 +113,84 @@ def call_remote_tool(gateway_url: str, access_token: str, arguments: dict) -> di
     return payload
 
 
+def discover_remote_tools(gateway_url: str, access_token: str) -> list[dict]:
+    """Return tool definitions advertised by an AgentCore Gateway."""
+    response = requests.post(
+        gateway_url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+            "Mcp-Method": "tools/list",
+        },
+        json={
+            "jsonrpc": "2.0",
+            "id": "list-tools-request",
+            "method": "tools/list",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+                    "io.modelcontextprotocol/clientInfo": {
+                        "name": "bfe-hackathon-test",
+                        "version": "1.0.0",
+                    },
+                    "io.modelcontextprotocol/clientCapabilities": {},
+                }
+            },
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if "error" in payload:
+        raise RuntimeError(f"MCP tools/list failed: {payload['error']}")
+    return payload.get("result", {}).get("tools", [])
+
+
+def configure_remote_tool(gateway_url: str, access_token: str) -> None:
+    """Discover the current AgentCore tool name and update Ollama's schema."""
+    global TOOL_NAME, TOOL_SCHEMA
+
+    available_tools = discover_remote_tools(gateway_url, access_token)
+    if not available_tools:
+        raise RuntimeError("The remote gateway did not advertise any MCP tools.")
+
+    preferred_tool = next(
+        (
+            tool for tool in available_tools
+            if tool["name"].endswith("___Retrieve")
+        ),
+        next(
+            (
+                tool for tool in available_tools
+                if "search" in tool["name"].lower()
+                and "knowledge" in tool["name"].lower()
+            ),
+            None,
+        ),
+    )
+    if preferred_tool is None:
+        names = [tool["name"] for tool in available_tools]
+        raise RuntimeError(
+            f"No knowledge-search tool was advertised by the remote gateway: {names}"
+        )
+
+    TOOL_NAME = preferred_tool["name"]
+    TOOL_SCHEMA = preferred_tool.get("inputSchema", preferred_tool.get("input_schema", {}))
+    TOOLS[0]["function"]["name"] = TOOL_NAME
+    TOOLS[0]["function"]["description"] = preferred_tool.get(
+        "description", TOOLS[0]["function"]["description"]
+    )
+    TOOLS[0]["function"]["parameters"] = TOOL_SCHEMA
+    print(f"Remote tools: {[tool['name'] for tool in available_tools]}")
+    print(f"Using remote tool: {TOOL_NAME}")
+
+
 def select_top_chunks(question: str, result: dict, top_k: int = TOP_K) -> list[dict]:
     # Preserve source metadata while reducing the retrieved context sent to Ollama.
     retrieved = result.get("result", {}).get("content", [])
+    source_catalog = {}
     if len(retrieved) == 1 and isinstance(retrieved[0], dict):
         text = retrieved[0].get("text")
         if text:
@@ -123,6 +200,7 @@ def select_top_chunks(question: str, result: dict, top_k: int = TOP_K) -> list[d
                 payload = None
             if isinstance(payload, dict) and "results" in payload:
                 retrieved = payload["results"]
+                source_catalog = payload.get("sources", {})
     passages = []
     for item in retrieved:
         if not isinstance(item, dict) or "text" not in item:
@@ -130,8 +208,10 @@ def select_top_chunks(question: str, result: dict, top_k: int = TOP_K) -> list[d
         passages.append({
             "id": str(len(passages)),
             "text": item["text"],
-            "source": item.get("source", {}),
-            "metadata": item.get("metadata", {}),
+            "source": item.get("source")
+            or source_catalog.get(item.get("source_id"), {}),
+            "metadata": item.get("metadata")
+            or source_catalog.get(item.get("source_id"), {}),
         })
 
     if not passages:
@@ -176,6 +256,16 @@ def print_sources(chunks: list[dict]) -> None:
 
 
 def normalize_tool_arguments(arguments: dict, fallback_question: str) -> dict:
+    if TOOL_SCHEMA:
+        properties = TOOL_SCHEMA.get("properties", {})
+        if "query" in properties:
+            query = arguments.get("query") or arguments.get("topic")
+            return {"query": str(query or fallback_question).strip()}
+
+    if TOOL_SCHEMA and "topic" in TOOL_SCHEMA.get("properties", {}):
+        topic = arguments.get("topic") or arguments.get("query") or fallback_question
+        return {"topic": str(topic).strip()}
+
     retrieval_query = arguments.get("retrievalQuery", {})
     if isinstance(retrieval_query, dict):
         query = (
@@ -233,9 +323,14 @@ def run(model: str, gateway_url: str, access_token: str):
             messages.append(response.message)
         else:
             # Qwen can reason about a tool without emitting structured tool_calls.
+            fallback_arguments = (
+                {"query": question}
+                if TOOL_SCHEMA and "query" in TOOL_SCHEMA.get("properties", {})
+                else {"retrievalQuery": {"text": question}}
+            )
             tool_calls = [{
                 "function": {
-                    "arguments": {"retrievalQuery": {"text": question}},
+                    "arguments": fallback_arguments,
                 },
             }]
 
@@ -258,7 +353,12 @@ def run(model: str, gateway_url: str, access_token: str):
                 break
 
             print("[Status] MCP response received. Selecting relevant context...", flush=True)
-            question = arguments["retrievalQuery"]["text"]
+            question = (
+                arguments.get("query")
+                or arguments.get("topic")
+                or arguments.get("retrievalQuery", {}).get("text")
+                or original_question
+            )
             top_chunks = select_top_chunks(question, result)
             messages.append({
                 "role": "tool" if model_requested_tool else "user",
@@ -293,6 +393,11 @@ def run(model: str, gateway_url: str, access_token: str):
 
 if __name__ == "__main__":    
     access_token = fetch_access_token()
+    print(f"MCP endpoint: {GATEWAY_URL}")
+    if GATEWAY_URL != LOCAL_GATEWAY_URL:
+        configure_remote_tool(GATEWAY_URL, access_token)
+    else:
+        print(f"MCP tool: {TOOL_NAME}")
     run(
         model="qwen3:14b",
         gateway_url=GATEWAY_URL,

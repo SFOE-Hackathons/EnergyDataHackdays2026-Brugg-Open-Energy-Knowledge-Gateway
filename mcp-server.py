@@ -19,6 +19,7 @@ RETRIEVAL_COUNT = 4 # Number of results to request from the Bedrock retrieval AP
 DEFAULT_TOP_K = 2 # Number of results to return to the client (low count -> less RAM usage, but may miss relevant results).
 DEFAULT_DEV_TOKEN = "local-development-token"
 DEFAULT_SERVER_URL = "http://127.0.0.1:8000"
+TOOL_NAME = "bfe-public-knowledge___Retrieve"
 
 
 # Local HTTP clients use a deterministic bearer token instead of Cognito.
@@ -144,7 +145,7 @@ def select_top_results(
 
 
 @mcp.tool(
-    name="bfe-public-knowledge___Retrieve",
+    name=TOOL_NAME,
     description="Retrieve information from the BFE public energy knowledge base.",
 )
 def retrieve(

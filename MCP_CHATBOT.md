@@ -145,7 +145,7 @@ This token is used only by the local `mcp-server.py`, which directly targets the
 Use this flow when `GATEWAY_URL` points to:
 
 ```text
-https://sandbox-bfe-public-kb-8thmswsvit.gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp
+https://bfe-energy-knowledge-open-v6rj5uttek.gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp
 ```
 
 The chatbot obtains an Amazon Cognito OAuth 2.0 client-credentials token using
@@ -180,7 +180,7 @@ The client defaults to the local endpoint. Select the remote AgentCore Gateway
 without editing the Python file:
 
 ```bash
-export GATEWAY_URL="https://sandbox-bfe-public-kb-8thmswsvit.gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
+export GATEWAY_URL="https://bfe-energy-knowledge-open-v6rj5uttek.gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
 ./bin/python local_gateway_test.py
 ```
 
@@ -197,7 +197,11 @@ For each question, the client:
 
 ## MCP tool contract
 
-The server exposes this tool name to match the remote gateway:
+The local server exposes the same retrieval contract as the remote gateway. The
+client discovers the current remote tool name with `tools/list` at startup, so
+renamed AgentCore deployments are supported without changing the client code.
+
+The local server uses:
 
 ```text
 bfe-public-knowledge___Retrieve
