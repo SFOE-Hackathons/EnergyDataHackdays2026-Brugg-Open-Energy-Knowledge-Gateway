@@ -35,7 +35,4 @@ tfplan-*
 *.auto.tfvars
 !envs/*.tfvars
 
-# Generated knowledge graph, rebuilt by `kb_graph` from the corpus.
-**/kg_creation/output/
-
 .DS_Store
