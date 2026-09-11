@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "energy-knowledge-gateway": {
+      "type": "http",
+      "url": "https://bfe-energy-knowledge-open-v6rj5uttek.gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
+    }
+  }
+}
