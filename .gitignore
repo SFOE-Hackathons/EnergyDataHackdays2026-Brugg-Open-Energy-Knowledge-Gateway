@@ -10,3 +10,32 @@ __pycache__/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Provider binaries Terraform downloads on `init`. The AWS provider alone is
+# 761 MB, well past GitHub's 100 MB per-file hard limit, so committing this
+# directory produces a branch that can never be pushed. The lock file below is
+# what pins the versions; the binaries are reproducible from it.
+.terraform/
+!.terraform.lock.hcl
+
+# Saved plan files. They are environment-specific and carry resolved attribute
+# values, including ones Terraform marks sensitive.
+tfplan
+tfplan-*
+*.tfplan
+
+# State never belongs in git - it holds every attribute of every resource in
+# plaintext. This stack keeps state in S3 (see infra/Makefile).
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+
+# Real variable values may carry account-specific settings. envs/*.tfvars is
+# checked in deliberately - those are the reviewed per-environment files.
+*.auto.tfvars
+!envs/*.tfvars
+
+# Generated knowledge graph, rebuilt by `kb_graph` from the corpus.
+**/kg_creation/output/
+
+.DS_Store
