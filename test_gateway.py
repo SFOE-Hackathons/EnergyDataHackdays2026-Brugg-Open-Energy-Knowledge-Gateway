@@ -1,115 +1,84 @@
-import os
-import json
-import requests
+"""End-to-end smoke test against the deployed gateway.
 
-CLIENT_ID = os.environ["CLIENT_ID"]
-CLIENT_SECRET = os.environ["CLIENT_SECRET"]
+    python3 test_gateway.py
 
-TOKEN_URL = (
-    "https://my-domain-ajdb98m7.auth.eu-central-1.amazoncognito.com/"
-    "oauth2/token"
-)
+Exercises the whole path in one go -- client -> gateway (open) -> Lambda
+invocation (IAM) -> Bedrock Retrieve (IAM) -- once per tool, and exits
+non-zero if any leg fails. Run it after `./infra/deploy-lambda.sh` and
+`./infra/create-gateway.sh`.
 
-GATEWAY_URL = (
-    "https://sandbox-bfe-public-kb-8thmswsvit."
-    "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
-)
+The only credential in the chain is the gateway's own IAM role, on the
+outbound leg. The inbound leg has none: GATEWAY_URL is all this needs.
 
-MCP_PROTOCOL_VERSION = "2026-07-28"
+This is a live-infrastructure check, not a unit test: it costs real Bedrock
+retrievals and takes on the order of a minute, mostly in get_metric_timeline,
+which issues one retrieval per year in the range. pytest deliberately does not
+collect it -- the offline tests live in mcp-gateway/tests/.
+"""
 
-TOOL_NAME = "bfe-public-knowledge___Retrieve"
+import sys
 
+from gateway_client import call, call_tool, fetch_access_token
 
-def fetch_access_token():
-    response = requests.post(
-        TOKEN_URL,
-        data={
-            "grant_type": "client_credentials",
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-        },
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        timeout=30,
-    )
-
-    response.raise_for_status()
-    return response.json()["access_token"]
-
-
-def retrieve(gateway_url, access_token, question):
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-        "Mcp-Method": "tools/call",
-        "Mcp-Name": TOOL_NAME,
-    }
-
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "retrieve-request",
-        "method": "tools/call",
-        "params": {
-            "name": TOOL_NAME,
-            "arguments": {
-                "retrievalQuery": {
-                    "text": question
-                }
-            },
-            "_meta": {
-                "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-                "io.modelcontextprotocol/clientInfo": {
-                    "name": "bfe-hackathon-test",
-                    "version": "1.0.0"
-                },
-                "io.modelcontextprotocol/clientCapabilities": {}
-            }
-        }
-    }
-
-    response = requests.post(
-        gateway_url,
-        headers=headers,
-        json=payload,
-        timeout=120,
-    )
-
-    print("HTTP status:", response.status_code)
-    print("\nRaw response:")
-    print(response.text)
-
-    response.raise_for_status()
-    return response.json()
+# One call per tool, with the cheapest arguments that still prove the tool
+# reached the corpus. The timeline range is two years on purpose: each year is
+# a separate sequential retrieval inside a single 60-second Lambda budget.
+CASES = [
+    (
+        "search_energy_knowledge",
+        {"query": "Rolle der Wasserkraft in der Schweizer Stromversorgung", "max_results": 3},
+    ),
+    (
+        "get_metric_timeline",
+        {"metric": "installierte Photovoltaik-Leistung", "start_year": 2022, "end_year": 2023},
+    ),
+    (
+        "get_chart_data",
+        {"topic": "Stromproduktion nach Energieträger", "max_charts": 2},
+    ),
+]
 
 
-def main():
-    question = (
-        "Welche Rolle spielt Wasserkraft in der Schweizer Stromversorgung?"
-    )
+def summarize(payload: dict) -> str:
+    """One line describing a tool result, without dumping the whole thing."""
+    # get_metric_timeline's list is called `data`, not `timeline` -- the name
+    # this once guessed at, which made a passing run report "keys: ..." as if
+    # it had not understood the result.
+    for key in ("results", "data", "charts"):
+        if isinstance(payload.get(key), list):
+            sources = len(payload.get("sources", {}) or {})
+            return f"{len(payload[key])} {key} from {sources} source(s)"
+    return f"keys: {', '.join(sorted(payload))}"
 
-    print("Fetching access token...")
-    access_token = fetch_access_token()
-    print("Token received.")
 
-    print("\nCalling MCP Retrieve tool...")
+def main() -> None:
+    failures = []
 
-    result = retrieve(
-        GATEWAY_URL,
-        access_token,
-        question,
-    )
+    token = fetch_access_token()
+    print("==> inbound auth: " + ("Cognito bearer token" if token else "none (open gateway)"))
 
-    print("\nParsed response:")
-    print(
-        json.dumps(
-            result,
-            indent=2,
-            ensure_ascii=False
-        )
-    )
+    print("==> tools/list")
+    try:
+        tools = [t["name"] for t in call("tools/list", {}, token, timeout=60).get("tools", [])]
+        print(f"    {len(tools)} tool(s): {', '.join(tools)}")
+    except Exception as exc:
+        print(f"    FAILED: {exc}")
+        failures.append("tools/list")
+        tools = []
+
+    for name, arguments in CASES:
+        print(f"==> {name}")
+        try:
+            payload = call_tool(name, arguments, token)
+            print(f"    ok -- {summarize(payload)}")
+        except Exception as exc:
+            print(f"    FAILED: {exc}")
+            failures.append(name)
+
+    if failures:
+        print(f"\n{len(failures)} failure(s): {', '.join(failures)}")
+        sys.exit(1)
+    print("\nall checks passed")
 
 
 if __name__ == "__main__":
