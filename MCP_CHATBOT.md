@@ -2,6 +2,10 @@
 
 This project provides a local Streamable HTTP MCP server backed by the Amazon Bedrock Knowledge Base `KB-bfe-public`, plus an interactive Ollama chatbot client.
 
+## Purpose
+Since the AgentCore Gateway returns a lot of redundant Metadata, local models get overwhelmed with the amount of information they receive. Because of that I introduced a local mcp-server which ranks the results from the KnowledgeBase again according to relevance and only returns the most-relevant information to the model.
+The MCP-Server can be adjusted according to the performance of the host machine. (higher performance -> more results)
+
 ## Architecture
 
 ```text
