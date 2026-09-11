@@ -4,6 +4,7 @@
 ![Slide 2](slides/Folie2.PNG)
 ![Slide 3](slides/Folie3.PNG)
 ![Slide 4](slides/Folie4.PNG)
+![Slide 5](slides/Folie5.PNG)
 
 # Weitere Infos
 Login-URL fuer die Konsole:
@@ -422,4 +423,3 @@ Potential scalable Energy Knowledge Gateway
 ```
 
 The Hackathon results should therefore be **reproducible, documented and reusable**.
-
