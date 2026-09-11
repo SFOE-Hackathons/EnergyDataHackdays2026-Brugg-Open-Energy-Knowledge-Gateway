@@ -1,0 +1,33 @@
+[project]
+name = "kg-creation"
+version = "0.1.0"
+description = "Full ingestion (PDF text extraction included) of an AWS Bedrock Knowledge Base into an RDF knowledge graph via maplib."
+requires-python = ">=3.11"
+dependencies = [
+  "boto3>=1.34",
+  "maplib>=0.13",
+  "polars>=1.0",
+  "pypdf>=4.0",
+  "pdfplumber>=0.11",
+  "python-frontmatter>=1.1",
+  "python-dotenv>=1.0",
+  "typer>=0.12",
+  "rdflib>=7.0",
+  "networkx>=3.0",
+  "pyvis>=0.3",
+  "kg-gen>=0.4",
+  "energy-vocab>=0.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+kb-graph = "kb_graph.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kb_graph"]
