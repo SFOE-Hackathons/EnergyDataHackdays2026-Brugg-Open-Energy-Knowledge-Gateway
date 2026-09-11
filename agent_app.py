@@ -156,17 +156,22 @@ MAX_ANSWER_TOKENS = int(
 # intended use of the current SFOE gateway.
 # ============================================================
 
-SEARCH_TOOL_HINT = "bfe-energy___search_energy_knowledge"
+SEARCH_TOOL_HINT = (
+    "bfe-energy___search_energy_knowledge"
+)
 
-TIMELINE_TOOL_HINT = "bfe-energy___get_metric_timeline"
+TIMELINE_TOOL_HINT = (
+    "bfe-energy___get_metric_timeline"
+)
 
-CHART_TOOL_HINT = "bfe-energy___get_chart_data"
+CHART_TOOL_HINT = (
+    "bfe-energy___get_chart_data"
+)
 
 
 # ============================================================
 # 3. VALIDATE BASIC CONFIGURATION
 # ============================================================
-
 
 def validate_configuration() -> None:
     """
@@ -185,10 +190,14 @@ def validate_configuration() -> None:
     """
 
     if not GATEWAY_URL:
-        raise RuntimeError("GATEWAY_URL is missing. Add it to your .env file.")
+        raise RuntimeError(
+            "GATEWAY_URL is missing. Add it to your .env file."
+        )
 
     if not BEDROCK_MODEL_ID:
-        raise RuntimeError("BEDROCK_MODEL_ID is missing.")
+        raise RuntimeError(
+            "BEDROCK_MODEL_ID is missing."
+        )
 
 
 # ============================================================
@@ -204,7 +213,6 @@ bedrock_runtime = boto3.client(
 # ============================================================
 # 5. OPTIONAL COGNITO AUTHENTICATION
 # ============================================================
-
 
 def cognito_is_configured() -> bool:
     """
@@ -263,10 +271,14 @@ def fetch_access_token() -> Optional[str]:
 
     payload = response.json()
 
-    token = payload.get("access_token")
+    token = payload.get(
+        "access_token"
+    )
 
     if not token:
-        raise RuntimeError("Cognito response did not contain access_token.")
+        raise RuntimeError(
+            "Cognito response did not contain access_token."
+        )
 
     return token
 
@@ -274,7 +286,6 @@ def fetch_access_token() -> Optional[str]:
 # ============================================================
 # 6. BUILD MCP HTTP HEADERS
 # ============================================================
-
 
 def build_mcp_headers(
     access_token: Optional[str],
@@ -310,17 +321,28 @@ def build_mcp_headers(
     """
 
     headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-        "Mcp-Method": method,
+        "Content-Type":
+            "application/json",
+        "Accept":
+            "application/json, text/event-stream",
+        "MCP-Protocol-Version":
+            MCP_PROTOCOL_VERSION,
+        "Mcp-Method":
+            method,
     }
 
-    if method == "tools/call" and tool_name:
-        headers["Mcp-Name"] = tool_name
+    if (
+        method == "tools/call"
+        and tool_name
+    ):
+        headers[
+            "Mcp-Name"
+        ] = tool_name
 
     if access_token:
-        headers["Authorization"] = f"Bearer {access_token}"
+        headers[
+            "Authorization"
+        ] = f"Bearer {access_token}"
 
     return headers
 
@@ -328,7 +350,6 @@ def build_mcp_headers(
 # ============================================================
 # 7. PARSE MCP HTTP / SSE RESPONSE
 # ============================================================
-
 
 def parse_mcp_http_response(
     response: requests.Response,
@@ -351,7 +372,8 @@ def parse_mcp_http_response(
     # This is much more useful than a generic "400 Bad Request".
     if not response.ok:
         raise RuntimeError(
-            f"MCP gateway HTTP {response.status_code}:\n{response.text[:4000]}"
+            f"MCP gateway HTTP {response.status_code}:\n"
+            f"{response.text[:4000]}"
         )
 
     content_type = response.headers.get(
@@ -359,7 +381,10 @@ def parse_mcp_http_response(
         "",
     ).lower()
 
-    if "application/json" in content_type:
+    if (
+        "application/json"
+        in content_type
+    ):
         return response.json()
 
     text = response.text.strip()
@@ -375,19 +400,29 @@ def parse_mcp_http_response(
     for line in text.splitlines():
         stripped = line.strip()
 
-        if stripped.startswith("data:"):
-            data_lines.append(stripped[5:].strip())
+        if stripped.startswith(
+            "data:"
+        ):
+            data_lines.append(
+                stripped[5:].strip()
+            )
 
-    for candidate in reversed(data_lines):
+    for candidate in reversed(
+        data_lines
+    ):
         try:
-            return json.loads(candidate)
+            return json.loads(
+                candidate
+            )
         except json.JSONDecodeError:
             continue
 
     # Final fallback: perhaps the body is plain JSON even if the
     # Content-Type header was unusual.
     try:
-        return json.loads(text)
+        return json.loads(
+            text
+        )
     except json.JSONDecodeError as error:
         raise RuntimeError(
             "Could not parse MCP gateway response as JSON/SSE.\n"
@@ -447,17 +482,25 @@ def mcp_request(
     # the working SFOE gateway calls.
     # --------------------------------------------------------
 
-    request_params = copy.deepcopy(params) if params is not None else {}
+    request_params = (
+        copy.deepcopy(params)
+        if params is not None
+        else {}
+    )
 
     request_params.setdefault(
         "_meta",
         {
-            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/protocolVersion":
+                MCP_PROTOCOL_VERSION,
             "io.modelcontextprotocol/clientInfo": {
-                "name": "sfoe-energy-knowledge-agent",
-                "version": "1.0.0",
+                "name":
+                    "sfoe-energy-knowledge-agent",
+                "version":
+                    "1.0.0",
             },
-            "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientCapabilities":
+                {},
         },
     )
 
@@ -473,7 +516,9 @@ def mcp_request(
     tool_name = None
 
     if method == "tools/call":
-        tool_name = request_params.get("name")
+        tool_name = request_params.get(
+            "name"
+        )
 
     response = requests.post(
         GATEWAY_URL,
@@ -486,9 +531,13 @@ def mcp_request(
         timeout=90,
     )
 
-    payload = parse_mcp_http_response(response)
+    payload = parse_mcp_http_response(
+        response
+    )
 
-    if payload.get("error"):
+    if payload.get(
+        "error"
+    ):
         raise RuntimeError(
             "MCP JSON-RPC error:\n"
             + json.dumps(
@@ -504,7 +553,6 @@ def mcp_request(
 # ============================================================
 # 9. DISCOVER MCP TOOLS
 # ============================================================
-
 
 def list_mcp_tools(
     access_token: Optional[str],
@@ -546,7 +594,9 @@ def list_mcp_tools(
     )
 
     if not tools:
-        raise RuntimeError("The MCP gateway returned no tools.")
+        raise RuntimeError(
+            "The MCP gateway returned no tools."
+        )
 
     return tools
 
@@ -554,7 +604,6 @@ def list_mcp_tools(
 # ============================================================
 # 10. EXTRACT TEXT FROM BEDROCK CONVERSE RESPONSE
 # ============================================================
-
 
 def extract_generated_text(
     response: Dict[str, Any],
@@ -569,7 +618,15 @@ def extract_generated_text(
     Combined text string.
     """
 
-    content = response["output"]["message"]["content"]
+    content = (
+        response[
+            "output"
+        ][
+            "message"
+        ][
+            "content"
+        ]
+    )
 
     parts = []
 
@@ -581,18 +638,23 @@ def extract_generated_text(
             )
             and "text" in item
         ):
-            parts.append(item["text"])
+            parts.append(
+                item["text"]
+            )
 
     if not parts:
-        raise ValueError("Bedrock model returned no text.")
+        raise ValueError(
+            "Bedrock model returned no text."
+        )
 
-    return "\n".join(parts)
+    return "\n".join(
+        parts
+    )
 
 
 # ============================================================
 # 11. ROBUST JSON EXTRACTION FROM LLM OUTPUT
 # ============================================================
-
 
 def extract_json_object(
     text: str,
@@ -615,7 +677,9 @@ def extract_json_object(
     cleaned = text.strip()
 
     try:
-        return json.loads(cleaned)
+        return json.loads(
+            cleaned
+        )
     except json.JSONDecodeError:
         pass
 
@@ -633,14 +697,20 @@ def extract_json_object(
     ).strip()
 
     try:
-        return json.loads(cleaned)
+        return json.loads(
+            cleaned
+        )
     except json.JSONDecodeError:
         pass
 
-    start = cleaned.find("{")
+    start = cleaned.find(
+        "{"
+    )
 
     if start == -1:
-        raise ValueError("No JSON object found in model response.")
+        raise ValueError(
+            "No JSON object found in model response."
+        )
 
     depth = 0
     in_string = False
@@ -656,12 +726,17 @@ def extract_json_object(
             escape = False
             continue
 
-        if char == "\\" and in_string:
+        if (
+            char == "\\"
+            and in_string
+        ):
             escape = True
             continue
 
         if char == '"':
-            in_string = not in_string
+            in_string = (
+                not in_string
+            )
             continue
 
         if in_string:
@@ -674,17 +749,23 @@ def extract_json_object(
             depth -= 1
 
             if depth == 0:
-                candidate = cleaned[start : index + 1]
+                candidate = cleaned[
+                    start:index + 1
+                ]
 
-                return json.loads(candidate)
+                return json.loads(
+                    candidate
+                )
 
-    raise ValueError("Could not extract complete JSON object from model response.")
+    raise ValueError(
+        "Could not extract complete JSON object "
+        "from model response."
+    )
 
 
 # ============================================================
 # 12. PREPARE TOOL DESCRIPTIONS FOR THE ROUTER
 # ============================================================
-
 
 def build_tool_catalog_text(
     tools: List[Dict[str, Any]],
@@ -742,13 +823,18 @@ def build_tool_catalog_text(
             )
         )
 
-    return ("\n\n============================================\n\n\n").join(blocks)
+    return (
+        "\n\n"
+        "============================================\n"
+        "\n\n"
+    ).join(
+        blocks
+    )
 
 
 # ============================================================
 # 13. BUILD AGENT ROUTER PROMPT
 # ============================================================
-
 
 def build_router_prompt(
     question: str,
@@ -780,7 +866,11 @@ def build_router_prompt(
         get_chart_data
     """
 
-    tool_catalog = build_tool_catalog_text(tools)
+    tool_catalog = (
+        build_tool_catalog_text(
+            tools
+        )
+    )
 
     return f"""
 You are the TOOL ROUTER for the SFOE Open Energy Knowledge
@@ -884,7 +974,6 @@ Use this structure:
 # 14. LET THE LLM CHOOSE THE TOOL
 # ============================================================
 
-
 def choose_tool(
     question: str,
     tools: List[Dict[str, Any]],
@@ -911,27 +1000,36 @@ def choose_tool(
         tools=tools,
     )
 
-    response = bedrock_runtime.converse(
-        modelId=BEDROCK_MODEL_ID,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "text": prompt,
-                    }
-                ],
-            }
-        ],
-        inferenceConfig={
-            "maxTokens": MAX_ROUTER_TOKENS,
-            "temperature": 0,
-        },
+    response = (
+        bedrock_runtime.converse(
+            modelId=
+                BEDROCK_MODEL_ID,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": prompt,
+                        }
+                    ],
+                }
+            ],
+            inferenceConfig={
+                "maxTokens":
+                    MAX_ROUTER_TOKENS,
+                "temperature":
+                    0,
+            },
+        )
     )
 
-    text = extract_generated_text(response)
+    text = extract_generated_text(
+        response
+    )
 
-    selection = extract_json_object(text)
+    selection = extract_json_object(
+        text
+    )
 
     validate_tool_selection(
         selection,
@@ -944,7 +1042,6 @@ def choose_tool(
 # ============================================================
 # 15. VALIDATE TOOL SELECTION
 # ============================================================
-
 
 def validate_tool_selection(
     selection: Dict[str, Any],
@@ -969,36 +1066,56 @@ def validate_tool_selection(
         selection,
         dict,
     ):
-        raise ValueError("Router output is not a JSON object.")
+        raise ValueError(
+            "Router output is not a JSON object."
+        )
 
-    tool_name = selection.get("tool_name")
+    tool_name = selection.get(
+        "tool_name"
+    )
 
-    arguments = selection.get("arguments")
+    arguments = selection.get(
+        "arguments"
+    )
 
-    valid_names = {tool.get("name") for tool in tools}
+    valid_names = {
+        tool.get(
+            "name"
+        )
+        for tool in tools
+    }
 
     if tool_name not in valid_names:
         raise ValueError(
             "Router selected unknown tool:\n"
             f"{tool_name}\n\n"
             "Available tools:\n"
-            + "\n".join(sorted(name for name in valid_names if name))
+            + "\n".join(
+                sorted(
+                    name
+                    for name in valid_names
+                    if name
+                )
+            )
         )
 
     if not isinstance(
         arguments,
         dict,
     ):
-        raise ValueError("Router 'arguments' must be a JSON object.")
+        raise ValueError(
+            "Router 'arguments' must be a JSON object."
+        )
 
     if "reason" not in selection:
-        selection["reason"] = ""
+        selection[
+            "reason"
+        ] = ""
 
 
 # ============================================================
 # 16. CALL THE SELECTED MCP TOOL
 # ============================================================
-
 
 def call_mcp_tool(
     tool_name: str,
@@ -1033,7 +1150,9 @@ def call_mcp_tool(
         {},
     )
 
-    if result.get("isError"):
+    if result.get(
+        "isError"
+    ):
         raise RuntimeError(
             "MCP tool returned an error:\n"
             + json.dumps(
@@ -1044,7 +1163,9 @@ def call_mcp_tool(
         )
 
     # Some MCP implementations provide structuredContent.
-    structured = result.get("structuredContent")
+    structured = result.get(
+        "structuredContent"
+    )
 
     if isinstance(
         structured,
@@ -1068,17 +1189,23 @@ def call_mcp_tool(
             )
             and "text" in item
         ):
-            text_parts.append(item["text"])
+            text_parts.append(
+                item["text"]
+            )
 
     if not text_parts:
         # Fall back to the result object itself.
         return result
 
-    combined_text = "\n".join(text_parts).strip()
+    combined_text = "\n".join(
+        text_parts
+    ).strip()
 
     # Prefer parsing the text payload as JSON.
     try:
-        parsed = json.loads(combined_text)
+        parsed = json.loads(
+            combined_text
+        )
 
         if isinstance(
             parsed,
@@ -1100,7 +1227,6 @@ def call_mcp_tool(
 # 17. OPTIONAL ARGUMENT REPAIR
 # ============================================================
 
-
 def find_tool_definition(
     tool_name: str,
     tools: List[Dict[str, Any]],
@@ -1112,7 +1238,12 @@ def find_tool_definition(
     """
 
     for tool in tools:
-        if tool.get("name") == tool_name:
+        if (
+            tool.get(
+                "name"
+            )
+            == tool_name
+        ):
             return tool
 
     return None
@@ -1145,7 +1276,9 @@ def repair_tool_arguments(
     This retries only once. We do not want an uncontrolled loop.
     """
 
-    tool_name = selection["tool_name"]
+    tool_name = selection[
+        "tool_name"
+    ]
 
     tool = find_tool_definition(
         tool_name,
@@ -1154,7 +1287,8 @@ def repair_tool_arguments(
 
     if not tool:
         raise RuntimeError(
-            "Cannot repair arguments because the tool definition could not be found."
+            "Cannot repair arguments because the tool "
+            "definition could not be found."
         )
 
     prompt = f"""
@@ -1187,25 +1321,21 @@ TOOL DESCRIPTION
 EXACT INPUT SCHEMA
 ============================================================
 
-{
-        json.dumps(
-            tool.get("inputSchema", {}),
-            indent=2,
-            ensure_ascii=False,
-        )
-    }
+{json.dumps(
+    tool.get("inputSchema", {}),
+    indent=2,
+    ensure_ascii=False,
+)}
 
 ============================================================
 FAILED ARGUMENTS
 ============================================================
 
-{
-        json.dumps(
-            selection.get("arguments", {}),
-            indent=2,
-            ensure_ascii=False,
-        )
-    }
+{json.dumps(
+    selection.get("arguments", {}),
+    indent=2,
+    ensure_ascii=False,
+)}
 
 ============================================================
 MCP ERROR
@@ -1228,25 +1358,34 @@ Return ONLY valid JSON:
 }}
 """
 
-    response = bedrock_runtime.converse(
-        modelId=BEDROCK_MODEL_ID,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "text": prompt,
-                    }
-                ],
-            }
-        ],
-        inferenceConfig={
-            "maxTokens": MAX_ROUTER_TOKENS,
-            "temperature": 0,
-        },
+    response = (
+        bedrock_runtime.converse(
+            modelId=
+                BEDROCK_MODEL_ID,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": prompt,
+                        }
+                    ],
+                }
+            ],
+            inferenceConfig={
+                "maxTokens":
+                    MAX_ROUTER_TOKENS,
+                "temperature":
+                    0,
+            },
+        )
     )
 
-    repaired = extract_json_object(extract_generated_text(response))
+    repaired = extract_json_object(
+        extract_generated_text(
+            response
+        )
+    )
 
     validate_tool_selection(
         repaired,
@@ -1259,7 +1398,6 @@ Return ONLY valid JSON:
 # ============================================================
 # 18. COMPACT LARGE TOOL RESULTS
 # ============================================================
-
 
 def compact_tool_payload(
     payload: Dict[str, Any],
@@ -1284,7 +1422,9 @@ def compact_tool_payload(
     Top-level source metadata is retained.
     """
 
-    compact = copy.deepcopy(payload)
+    compact = copy.deepcopy(
+        payload
+    )
 
     for key in [
         "results",
@@ -1292,13 +1432,17 @@ def compact_tool_payload(
         "matches",
         "records",
     ]:
-        value = compact.get(key)
+        value = compact.get(
+            key
+        )
 
         if isinstance(
             value,
             list,
         ):
-            compact[key] = value[:TOP_K_RESULTS]
+            compact[key] = value[
+                :TOP_K_RESULTS
+            ]
 
     return compact
 
@@ -1306,7 +1450,6 @@ def compact_tool_payload(
 # ============================================================
 # 19. BUILD DEDUPLICATED SOURCE NUMBER MAP
 # ============================================================
-
 
 def build_source_number_map(
     payload: Dict[str, Any],
@@ -1360,7 +1503,9 @@ def build_source_number_map(
         ):
             return metadata
 
-        return {"value": metadata}
+        return {
+            "value": metadata
+        }
 
     def source_identity(
         source_id: str,
@@ -1370,24 +1515,47 @@ def build_source_number_map(
         Build a stable identity for source deduplication.
         """
 
-        url = metadata.get("download_url") or metadata.get("url")
+        url = (
+            metadata.get("download_url")
+            or metadata.get("url")
+        )
 
         if url:
-            return "url:" + str(url).strip().lower()
+            return (
+                "url:"
+                + str(url)
+                .strip()
+                .lower()
+            )
 
-        title = metadata.get("title") or metadata.get("document")
+        title = (
+            metadata.get("title")
+            or metadata.get("document")
+        )
 
-        published_at = metadata.get("published_at")
+        published_at = metadata.get(
+            "published_at"
+        )
 
         if title:
             return (
                 "title:"
-                + str(title).strip().lower()
+                + str(title)
+                .strip()
+                .lower()
                 + "|published:"
-                + str(published_at or "").strip().lower()
+                + str(
+                    published_at
+                    or ""
+                )
+                .strip()
+                .lower()
             )
 
-        return "source_id:" + str(source_id)
+        return (
+            "source_id:"
+            + str(source_id)
+        )
 
     def register_source(
         source_id: str,
@@ -1406,24 +1574,47 @@ def build_source_number_map(
         )
 
         if identity in identity_to_number:
-            source_number_map[source_id] = identity_to_number[identity]
+            source_number_map[
+                source_id
+            ] = identity_to_number[
+                identity
+            ]
             return
 
-        number = len(normalized_sources) + 1
+        number = (
+            len(normalized_sources)
+            + 1
+        )
 
-        identity_to_number[identity] = number
+        identity_to_number[
+            identity
+        ] = number
 
-        source_number_map[source_id] = number
+        source_number_map[
+            source_id
+        ] = number
 
         normalized_sources.append(
             {
-                "number": number,
-                "source_id": source_id,
-                "title": metadata.get("title")
-                or metadata.get("document")
-                or "SFOE source",
-                "published_at": metadata.get("published_at"),
-                "download_url": metadata.get("download_url") or metadata.get("url"),
+                "number":
+                    number,
+                "source_id":
+                    source_id,
+                "title":
+                    metadata.get("title")
+                    or metadata.get("document")
+                    or "SFOE source",
+                "published_at":
+                    metadata.get(
+                        "published_at"
+                    ),
+                "download_url":
+                    metadata.get(
+                        "download_url"
+                    )
+                    or metadata.get(
+                        "url"
+                    ),
             }
         )
 
@@ -1435,9 +1626,14 @@ def build_source_number_map(
             source_id,
             metadata,
         ) in sources.items():
+
             register_source(
-                source_id=str(source_id),
-                metadata=normalize_metadata(metadata),
+                source_id=
+                    str(source_id),
+                metadata=
+                    normalize_metadata(
+                        metadata
+                    ),
             )
 
     elif isinstance(
@@ -1448,7 +1644,12 @@ def build_source_number_map(
             sources,
             start=1,
         ):
-            metadata = normalize_metadata(metadata)
+
+            metadata = (
+                normalize_metadata(
+                    metadata
+                )
+            )
 
             source_id = str(
                 metadata.get(
@@ -1458,8 +1659,10 @@ def build_source_number_map(
             )
 
             register_source(
-                source_id=source_id,
-                metadata=metadata,
+                source_id=
+                    source_id,
+                metadata=
+                    metadata,
             )
 
     return (
@@ -1467,11 +1670,9 @@ def build_source_number_map(
         normalized_sources,
     )
 
-
 # ============================================================
 # 20. ANNOTATE SOURCE IDS WITH [N] CITATIONS
 # ============================================================
-
 
 def annotate_source_citations(
     value: Any,
@@ -1500,18 +1701,26 @@ def annotate_source_citations(
         output = {}
 
         for key, item in value.items():
-            output[key] = annotate_source_citations(
-                item,
-                source_number_map,
+            output[key] = (
+                annotate_source_citations(
+                    item,
+                    source_number_map,
+                )
             )
 
-        source_id = value.get("source_id")
+        source_id = value.get(
+            "source_id"
+        )
 
         if source_id is not None:
-            number = source_number_map.get(str(source_id))
+            number = source_number_map.get(
+                str(source_id)
+            )
 
             if number is not None:
-                output["_citation"] = f"[{number}]"
+                output[
+                    "_citation"
+                ] = f"[{number}]"
 
         return output
 
@@ -1533,7 +1742,6 @@ def annotate_source_citations(
 # ============================================================
 # 21. BUILD FINAL EVIDENCE CONTEXT
 # ============================================================
-
 
 def prepare_agent_context(
     tool_name: str,
@@ -1564,16 +1772,22 @@ def prepare_agent_context(
     and annotate source IDs with [N] citation labels.
     """
 
-    compact = compact_tool_payload(tool_payload)
+    compact = compact_tool_payload(
+        tool_payload
+    )
 
     (
         source_number_map,
         normalized_sources,
-    ) = build_source_number_map(compact)
+    ) = build_source_number_map(
+        compact
+    )
 
-    annotated = annotate_source_citations(
-        compact,
-        source_number_map,
+    annotated = (
+        annotate_source_citations(
+            compact,
+            source_number_map,
+        )
     )
 
     source_legend_lines = []
@@ -1591,9 +1805,14 @@ def prepare_agent_context(
         )
 
     source_legend = (
-        "\n".join(source_legend_lines)
+        "\n".join(
+            source_legend_lines
+        )
         if source_legend_lines
-        else ("No separate top-level source map was returned by this tool.")
+        else (
+            "No separate top-level source map "
+            "was returned by this tool."
+        )
     )
 
     result_json = json.dumps(
@@ -1602,9 +1821,14 @@ def prepare_agent_context(
         ensure_ascii=False,
     )
 
-    if len(result_json) > MAX_TOOL_CONTEXT_CHARS:
+    if (
+        len(result_json)
+        > MAX_TOOL_CONTEXT_CHARS
+    ):
         result_json = (
-            result_json[:MAX_TOOL_CONTEXT_CHARS]
+            result_json[
+                :MAX_TOOL_CONTEXT_CHARS
+            ]
             + "\n\n[TOOL RESULT TRUNCATED BY AGENT_APP "
             "FOR CONTEXT SIZE]"
         )
@@ -1640,7 +1864,6 @@ MCP TOOL RESULT
 # ============================================================
 # 22. BUILD TOOL-SPECIFIC ANSWER INSTRUCTIONS
 # ============================================================
-
 
 def build_tool_specific_answer_instructions(
     question: str,
@@ -1723,6 +1946,11 @@ GENERAL-SEARCH-SPECIFIC RULES
   sentence or bullet.
 - Do not attach one large citation block only at the end of a
   paragraph containing multiple distinct claims.
+- If the exact requested information is missing but related SFOE
+  evidence was retrieved, cite the related supported facts before
+  explaining that the exact requested information is not present
+  in the supplied evidence.
+- Do not invent a citation for the absence itself.
 """
 
     # Fallback for any future MCP tool dynamically discovered.
@@ -1737,7 +1965,6 @@ GENERAL ANSWER RULES
 # ============================================================
 # 23. BUILD GROUNDED ANSWER PROMPT
 # ============================================================
-
 
 def build_answer_prompt(
     question: str,
@@ -1768,9 +1995,11 @@ def build_answer_prompt(
     - stronger claim-level citation placement
     """
 
-    tool_specific_instructions = build_tool_specific_answer_instructions(
-        question=question,
-        tool_name=tool_name,
+    tool_specific_instructions = (
+        build_tool_specific_answer_instructions(
+            question=question,
+            tool_name=tool_name,
+        )
     )
 
     return f"""
@@ -1846,6 +2075,37 @@ STRICT GROUNDING RULES
     accurately, explicitly say that the available SFOE evidence
     is insufficient. Do not guess.
 
+    IMPORTANT FOR ABSTENTION / INSUFFICIENT-EVIDENCE ANSWERS:
+
+    - If relevant sources are present in the SOURCE LEGEND, do
+      NOT return a completely uncited abstention.
+    - Cite the factual statements about what the retrieved SFOE
+      evidence DOES contain.
+    - If the evidence contains current values, historical values,
+      general policy information, scenario descriptions or other
+      related facts, cite those statements immediately.
+    - Then clearly state that the specifically requested value,
+      year, projection or detail is not provided in the supplied
+      evidence.
+    - Phrase absence carefully as:
+          "The supplied/retrieved evidence does not provide ..."
+      rather than making the broader claim that no such
+      information exists anywhere in SFOE publications.
+    - Do NOT cite an unrelated source merely to create a citation.
+    - Do NOT claim that a source proves the absence of information
+      unless the source itself explicitly supports that claim.
+    - When relevant source mappings exist, an abstention answer
+      should normally contain at least one valid citation.
+
+    EXAMPLE:
+
+        The retrieved SFOE evidence reports nuclear generation of
+        X TWh in 2022 [1] and discusses general future nuclear
+        scenarios [2]. However, the supplied evidence does not
+        provide a specific projection for nuclear production in
+        2040. Therefore, that value cannot be determined from the
+        retrieved evidence.
+
 13. Do NOT invent page numbers.
 
 14. Answer in the same language as the user's question.
@@ -1874,6 +2134,11 @@ Before returning the answer, verify:
 - Did I preserve production vs demand and capacity vs generation?
 - Did I preserve estimate/projection/truncation meaning?
 - Did I avoid unsupported conclusions?
+- If I am abstaining because evidence is insufficient and relevant
+  sources were retrieved, did I cite the supported facts that the
+  evidence DOES contain?
+- Did I avoid turning "not present in the supplied evidence" into
+  the stronger claim "does not exist anywhere"?
 
 Return only the final answer after this check.
 
@@ -1900,11 +2165,9 @@ ANSWER
 ============================================================
 """
 
-
 # ============================================================
 # 24. GENERATE FINAL ANSWER
 # ============================================================
-
 
 def generate_answer(
     question: str,
@@ -1932,32 +2195,41 @@ def generate_answer(
         context=context,
     )
 
-    response = bedrock_runtime.converse(
-        modelId=BEDROCK_MODEL_ID,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "text": prompt,
-                    }
-                ],
-            }
-        ],
-        inferenceConfig={
-            "maxTokens": MAX_ANSWER_TOKENS,
-            "temperature": 0,
-        },
+    response = (
+        bedrock_runtime.converse(
+            modelId=
+                BEDROCK_MODEL_ID,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": prompt,
+                        }
+                    ],
+                }
+            ],
+            inferenceConfig={
+                "maxTokens":
+                    MAX_ANSWER_TOKENS,
+                "temperature":
+                    0,
+            },
+        )
     )
 
-    return extract_generated_text(response).strip()
+    return extract_generated_text(
+        response
+    ).strip()
 
 
 # ============================================================
 # 25. CLEAN CITATIONS AND KEEP ONLY CITED SOURCES
 # ============================================================
 
-CITATION_BLOCK_PATTERN = re.compile(r"\[((?:\d+\s*,\s*)*\d+)\]")
+CITATION_BLOCK_PATTERN = re.compile(
+    r"\[((?:\d+\s*,\s*)*\d+)\]"
+)
 
 
 def extract_citation_numbers(
@@ -1982,17 +2254,23 @@ def extract_citation_numbers(
 
     used_numbers = []
 
-    for match in CITATION_BLOCK_PATTERN.finditer(answer):
+    for match in CITATION_BLOCK_PATTERN.finditer(
+        answer
+    ):
         numbers = re.findall(
             r"\d+",
             match.group(1),
         )
 
         for number_text in numbers:
-            number = int(number_text)
+            number = int(
+                number_text
+            )
 
             if number not in used_numbers:
-                used_numbers.append(number)
+                used_numbers.append(
+                    number
+                )
 
     return used_numbers
 
@@ -2035,14 +2313,21 @@ def clean_answer_and_sources(
     """
 
     source_by_number = {
-        int(source["number"]): source
+        int(
+            source["number"]
+        ):
+            source
         for source in sources
-        if source.get("number") is not None
+        if source.get(
+            "number"
+        ) is not None
     }
 
     used_numbers = [
         number
-        for number in extract_citation_numbers(answer)
+        for number in extract_citation_numbers(
+            answer
+        )
         if number in source_by_number
     ]
 
@@ -2053,7 +2338,8 @@ def clean_answer_and_sources(
         )
 
     old_to_new = {
-        old_number: new_number
+        old_number:
+            new_number
         for new_number, old_number in enumerate(
             used_numbers,
             start=1,
@@ -2075,33 +2361,59 @@ def clean_answer_and_sources(
         new_numbers = []
 
         for old_number in old_numbers:
-            new_number = old_to_new.get(old_number)
+            new_number = old_to_new.get(
+                old_number
+            )
 
-            if new_number is not None and new_number not in new_numbers:
-                new_numbers.append(new_number)
+            if (
+                new_number is not None
+                and new_number
+                not in new_numbers
+            ):
+                new_numbers.append(
+                    new_number
+                )
 
         # Keep invalid citation blocks visible rather than
         # silently hiding a model error.
         if not new_numbers:
             return match.group(0)
 
-        return "".join(f"[{number}]" for number in new_numbers)
+        return "".join(
+            f"[{number}]"
+            for number in new_numbers
+        )
 
-    cleaned_answer = CITATION_BLOCK_PATTERN.sub(
-        replace_citation_block,
-        answer,
+    cleaned_answer = (
+        CITATION_BLOCK_PATTERN.sub(
+            replace_citation_block,
+            answer,
+        )
     )
 
     cleaned_sources = []
 
     for old_number in used_numbers:
-        source = copy.deepcopy(source_by_number[old_number])
 
-        source["original_number"] = old_number
+        source = copy.deepcopy(
+            source_by_number[
+                old_number
+            ]
+        )
 
-        source["number"] = old_to_new[old_number]
+        source[
+            "original_number"
+        ] = old_number
 
-        cleaned_sources.append(source)
+        source[
+            "number"
+        ] = old_to_new[
+            old_number
+        ]
+
+        cleaned_sources.append(
+            source
+        )
 
     return (
         cleaned_answer,
@@ -2112,7 +2424,6 @@ def clean_answer_and_sources(
 # ============================================================
 # 26. DISPLAY ONLY CITED SOURCES
 # ============================================================
-
 
 def print_sources(
     sources: List[Dict[str, Any]],
@@ -2133,26 +2444,43 @@ def print_sources(
     """
 
     if not sources:
-        print("\nSources:\nNo valid source citation was detected in the final answer.")
+        print(
+            "\nSources:\n"
+            "No valid source citation was detected in the "
+            "final answer."
+        )
 
         return
 
-    print("\nSources:")
+    print(
+        "\nSources:"
+    )
 
     for source in sources:
-        print(f"\n[{source['number']}] {source['title']}")
+        print(
+            f"\n[{source['number']}] "
+            f"{source['title']}"
+        )
 
-        if source.get("published_at"):
-            print(f"    Published: {source['published_at']}")
+        if source.get(
+            "published_at"
+        ):
+            print(
+                "    Published: "
+                f"{source['published_at']}"
+            )
 
-        if source.get("download_url"):
-            print(f"    {source['download_url']}")
-
+        if source.get(
+            "download_url"
+        ):
+            print(
+                "    "
+                f"{source['download_url']}"
+            )
 
 # ============================================================
 # 27. PROCESS ONE QUESTION
 # ============================================================
-
 
 def answer_question(
     question: str,
@@ -2192,11 +2520,19 @@ def answer_question(
         tools=tools,
     )
 
-    print("\nSelected tool:")
+    print(
+        "\nSelected tool:"
+    )
 
-    print(selection["tool_name"])
+    print(
+        selection[
+            "tool_name"
+        ]
+    )
 
-    print("\nRouting reason:")
+    print(
+        "\nRouting reason:"
+    )
 
     print(
         selection.get(
@@ -2205,7 +2541,9 @@ def answer_question(
         )
     )
 
-    print("\nTool arguments:")
+    print(
+        "\nTool arguments:"
+    )
 
     print(
         json.dumps(
@@ -2224,9 +2562,16 @@ def answer_question(
 
     try:
         tool_payload = call_mcp_tool(
-            tool_name=selection["tool_name"],
-            arguments=selection["arguments"],
-            access_token=access_token,
+            tool_name=
+                selection[
+                    "tool_name"
+                ],
+            arguments=
+                selection[
+                    "arguments"
+                ],
+            access_token=
+                access_token,
         )
 
     except Exception as first_error:
@@ -2234,18 +2579,28 @@ def answer_question(
         # One controlled repair attempt
         # ----------------------------------------------------
 
-        print("\nInitial MCP tool call failed.")
-
-        print("Trying one automatic argument repair...")
-
-        repaired = repair_tool_arguments(
-            question=question,
-            selection=selection,
-            error_message=str(first_error),
-            tools=tools,
+        print(
+            "\nInitial MCP tool call failed."
         )
 
-        print("\nRepaired arguments:")
+        print(
+            "Trying one automatic argument repair..."
+        )
+
+        repaired = repair_tool_arguments(
+            question=
+                question,
+            selection=
+                selection,
+            error_message=
+                str(first_error),
+            tools=
+                tools,
+        )
+
+        print(
+            "\nRepaired arguments:"
+        )
 
         print(
             json.dumps(
@@ -2261,22 +2616,36 @@ def answer_question(
         selection = repaired
 
         tool_payload = call_mcp_tool(
-            tool_name=selection["tool_name"],
-            arguments=selection["arguments"],
-            access_token=access_token,
+            tool_name=
+                selection[
+                    "tool_name"
+                ],
+            arguments=
+                selection[
+                    "arguments"
+                ],
+            access_token=
+                access_token,
         )
 
     (
         context,
         sources,
     ) = prepare_agent_context(
-        tool_name=selection["tool_name"],
-        tool_payload=tool_payload,
+        tool_name=
+            selection[
+                "tool_name"
+            ],
+        tool_payload=
+            tool_payload,
     )
 
     answer = generate_answer(
         question=question,
-        tool_name=selection["tool_name"],
+        tool_name=
+            selection[
+                "tool_name"
+            ],
         context=context,
     )
 
@@ -2298,21 +2667,32 @@ def answer_question(
         sources=sources,
     )
 
-    print("\n" + "=" * 80)
+    print(
+        "\n"
+        + "=" * 80
+    )
 
-    print("ANSWER")
+    print(
+        "ANSWER"
+    )
 
-    print("=" * 80)
+    print(
+        "=" * 80
+    )
 
-    print("\n" + answer)
+    print(
+        "\n"
+        + answer
+    )
 
-    print_sources(sources)
+    print_sources(
+        sources
+    )
 
 
 # ============================================================
 # 28. PRINT DISCOVERED TOOLS
 # ============================================================
-
 
 def print_discovered_tools(
     tools: List[Dict[str, Any]],
@@ -2323,16 +2703,24 @@ def print_discovered_tools(
     Show which MCP tools the current gateway actually exposes.
     """
 
-    print("\nDiscovered MCP tools:")
+    print(
+        "\nDiscovered MCP tools:"
+    )
 
     for tool in tools:
-        print(" - " + str(tool.get("name")))
+        print(
+            " - "
+            + str(
+                tool.get(
+                    "name"
+                )
+            )
+        )
 
 
 # ============================================================
 # 29. MAIN INTERACTIVE APPLICATION
 # ============================================================
-
 
 def main() -> None:
     """
@@ -2351,63 +2739,96 @@ def main() -> None:
 
     validate_configuration()
 
-    print("\n" + "=" * 80)
+    print(
+        "\n"
+        + "=" * 80
+    )
 
-    print("SFOE OPEN ENERGY KNOWLEDGE AGENT")
+    print(
+        "SFOE OPEN ENERGY KNOWLEDGE AGENT"
+    )
 
-    print("=" * 80)
+    print(
+        "=" * 80
+    )
 
-    print("\nProduction model:")
+    print(
+        "\nProduction model:"
+    )
 
-    print(BEDROCK_MODEL_ID)
+    print(
+        BEDROCK_MODEL_ID
+    )
 
     # --------------------------------------------------------
     # Optional authentication
     # --------------------------------------------------------
 
     if cognito_is_configured():
-        print("\nAuthenticating with Cognito...")
+        print(
+            "\nAuthenticating with Cognito..."
+        )
 
         access_token = fetch_access_token()
 
-        print("Authentication successful.")
+        print(
+            "Authentication successful."
+        )
 
     else:
         access_token = None
 
         print(
-            "\nCognito is not configured. Calling gateway without Authorization header."
+            "\nCognito is not configured. "
+            "Calling gateway without Authorization header."
         )
 
     # --------------------------------------------------------
     # Discover tools only once at application startup.
     # --------------------------------------------------------
 
-    print("\nDiscovering MCP tools...")
+    print(
+        "\nDiscovering MCP tools..."
+    )
 
-    tools = list_mcp_tools(access_token)
+    tools = list_mcp_tools(
+        access_token
+    )
 
-    print_discovered_tools(tools)
+    print_discovered_tools(
+        tools
+    )
 
-    print("\nType a question.")
+    print(
+        "\nType a question."
+    )
 
-    print("Type 'exit' or 'quit' to stop.")
+    print(
+        "Type 'exit' or 'quit' to stop."
+    )
 
     # --------------------------------------------------------
     # Interactive question loop
     # --------------------------------------------------------
 
     while True:
-        print("\n" + "-" * 80)
+        print(
+            "\n"
+            + "-" * 80
+        )
 
         try:
-            question = input("\nQuestion: ").strip()
+            question = input(
+                "\nQuestion: "
+            ).strip()
 
         except (
             EOFError,
             KeyboardInterrupt,
         ):
-            print("\nStopping.")
+            print(
+                "\nStopping."
+            )
 
             break
 
@@ -2415,7 +2836,9 @@ def main() -> None:
             "exit",
             "quit",
         }:
-            print("\nStopping.")
+            print(
+                "\nStopping."
+            )
 
             break
 
@@ -2424,28 +2847,43 @@ def main() -> None:
 
         try:
             answer_question(
-                question=question,
-                tools=tools,
-                access_token=access_token,
+                question=
+                    question,
+                tools=
+                    tools,
+                access_token=
+                    access_token,
             )
 
         except (
             ClientError,
             BotoCoreError,
         ) as error:
-            print("\nAWS Bedrock error:")
+            print(
+                "\nAWS Bedrock error:"
+            )
 
-            print(error)
+            print(
+                error
+            )
 
         except requests.RequestException as error:
-            print("\nGateway / HTTP error:")
+            print(
+                "\nGateway / HTTP error:"
+            )
 
-            print(error)
+            print(
+                error
+            )
 
         except Exception as error:
-            print("\nAgent error:")
+            print(
+                "\nAgent error:"
+            )
 
-            print(error)
+            print(
+                error
+            )
 
 
 # ============================================================
