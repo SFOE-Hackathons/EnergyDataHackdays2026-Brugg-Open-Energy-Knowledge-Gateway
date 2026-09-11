@@ -9,15 +9,18 @@ TOKEN_URL = (
     "https://my-domain-ajdb98m7.auth.eu-central-1.amazoncognito.com/"
     "oauth2/token"
 )
-GATEWAY_URL = (
-    # "https://sandbox-bfe-public-kb-8thmswsvit."
-    # "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
-    "http://127.0.0.1:8000/mcp"
+REMOTE_GATEWAY_URL = (
+    "https://sandbox-bfe-public-kb-8thmswsvit."
+    "gateway.bedrock-agentcore.eu-central-1.amazonaws.com/mcp"
 )
+LOCAL_GATEWAY_URL = "http://127.0.0.1:8000/mcp"
+GATEWAY_URL = os.getenv("GATEWAY_URL", LOCAL_GATEWAY_URL)
 LOCAL_DEV_TOKEN = os.getenv("MCP_DEV_TOKEN", "local-development-token")
 MCP_PROTOCOL_VERSION = "2026-07-28"
 TOOL_NAME = "bfe-public-knowledge___Retrieve"
 TOP_K = 2
+OLLAMA_CONTEXT_SIZE = 2048
+reranker = Ranker()
 TOOLS = [{
     "type": "function",
     "function": {
@@ -39,7 +42,8 @@ TOOLS = [{
 
 
 def fetch_access_token() -> str:
-    if GATEWAY_URL.startswith("http://127.0.0.1"):
+    # Local mode mirrors the model-facing auth flow without requiring Cognito credentials.
+    if GATEWAY_URL == LOCAL_GATEWAY_URL:
         return LOCAL_DEV_TOKEN
 
     response = requests.post(
@@ -56,6 +60,7 @@ def fetch_access_token() -> str:
     return response.json()["access_token"]
 
 def call_remote_tool(gateway_url: str, access_token: str, arguments: dict) -> dict:
+    # The remote gateway uses a direct tools/call contract rather than a standard session handshake.
     response = requests.post(
         gateway_url,
         headers={
@@ -86,10 +91,28 @@ def call_remote_tool(gateway_url: str, access_token: str, arguments: dict) -> di
         timeout=120,
     )
     response.raise_for_status()
-    return response.json()
+    payload = response.json()
+    if "error" in payload:
+        # Never turn a JSON-RPC error into apparently valid model context.
+        error = payload["error"]
+        raise RuntimeError(
+            f"MCP retrieval failed: {error.get('message', error)}"
+        )
+
+    result = payload.get("result", {})
+    if result.get("isError"):
+        error_text = "MCP tool returned an error"
+        for item in result.get("content", []):
+            if isinstance(item, dict) and item.get("text"):
+                error_text = item["text"]
+                break
+        raise RuntimeError(error_text)
+
+    return payload
 
 
 def select_top_chunks(question: str, result: dict, top_k: int = TOP_K) -> list[dict]:
+    # Preserve source metadata while reducing the retrieved context sent to Ollama.
     retrieved = result.get("result", {}).get("content", [])
     if len(retrieved) == 1 and isinstance(retrieved[0], dict):
         text = retrieved[0].get("text")
@@ -104,12 +127,17 @@ def select_top_chunks(question: str, result: dict, top_k: int = TOP_K) -> list[d
     for item in retrieved:
         if not isinstance(item, dict) or "text" not in item:
             continue
-        passages.append({"id": str(len(passages)), "text": item["text"]})
+        passages.append({
+            "id": str(len(passages)),
+            "text": item["text"],
+            "source": item.get("source", {}),
+            "metadata": item.get("metadata", {}),
+        })
 
     if not passages:
         return []
 
-    reranked = Ranker().rerank(
+    reranked = reranker.rerank(
         RerankRequest(query=question, passages=passages)
     )
     return [
@@ -118,9 +146,33 @@ def select_top_chunks(question: str, result: dict, top_k: int = TOP_K) -> list[d
             "score": float(passage["score"])
             if passage.get("score") is not None
             else None,
+            "source": passage.get("source", {}),
+            "metadata": passage.get("metadata", {}),
         }
         for passage in reranked[:top_k]
     ]
+
+
+def print_sources(chunks: list[dict]) -> None:
+    # Show citations separately from the compact context supplied to the model.
+    if not chunks:
+        print("\nSources: none returned")
+        return
+
+    print("\nSources:")
+    for index, chunk in enumerate(chunks, start=1):
+        source = chunk.get("source", {})
+        metadata = chunk.get("metadata", {})
+        title = (
+            metadata.get("title")
+            or metadata.get("document_title")
+            or metadata.get("name")
+            or "Untitled document"
+        )
+        location = source.get("webLocation") or source.get("uri") or "Unavailable"
+        score = chunk.get("score")
+        score_text = f" | score: {score:.3f}" if isinstance(score, float) else ""
+        print(f"  [{index}] {title}{score_text}\n      {location}")
 
 
 def normalize_tool_arguments(arguments: dict, fallback_question: str) -> dict:
@@ -142,8 +194,6 @@ def normalize_tool_arguments(arguments: dict, fallback_question: str) -> dict:
 
 
 def run(model: str, gateway_url: str, access_token: str):
-    question = "How has hydroenergy production developed in Switzerland?"
-    original_question = question
     messages = [
         {
             "role": "system",
@@ -151,60 +201,94 @@ def run(model: str, gateway_url: str, access_token: str):
                 "You are a helpful assistant. Use the energy knowledge gateway "
                 "to answer questions about Swiss energy."
             ),
-        },
-        {"role": "user", "content": question},
+        }
     ]
-    response = ollama.chat(model=model, messages=messages, tools=TOOLS, options={"num_ctx": 2048})
-    tool_calls = response.message.tool_calls or []
-    model_requested_tool = bool(tool_calls)
 
-    if model_requested_tool:
-        messages.append(response.message)
-    else:
-        # Some local models reason about a tool but stop without emitting a
-        # structured tool call. Use the known tool contract as a fallback.
-        tool_calls = [{
-            "function": {
-                "arguments": {"retrievalQuery": {"text": question}},
-            },
-        }]
+    print("Open Energy chatbot. Type 'exit' or 'quit' to leave.")
+    while True:
+        try:
+            question = input("\nYou: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nGoodbye.")
+            break
 
-    for tool_call in tool_calls:
-        if isinstance(tool_call, dict):
-            arguments = tool_call["function"]["arguments"]
-        else:
-            arguments = tool_call.function.arguments
-        if isinstance(arguments, str):
-            arguments = json.loads(arguments)
-        arguments = normalize_tool_arguments(arguments, original_question)
-        result = call_remote_tool(
-            gateway_url,
-            access_token,
-            arguments,
+        if not question:
+            continue
+        if question.lower() in {"exit", "quit"}:
+            print("Goodbye.")
+            break
+
+        original_question = question
+        messages.append({"role": "user", "content": question})
+        response = ollama.chat(
+            model=model,
+            messages=messages,
+            tools=TOOLS,
+            options={"num_ctx": OLLAMA_CONTEXT_SIZE},
         )
-        question = arguments["retrievalQuery"]["text"]
-        top_chunks = select_top_chunks(question, result)
-        context_message = json.dumps({
-            "question": question,
-            "top_k": len(top_chunks),
-            "results": top_chunks,
-        })
-        messages.append({
-            "role": "tool" if model_requested_tool else "user",
-            "content": context_message,
-        })
+        tool_calls = response.message.tool_calls or []
+        model_requested_tool = bool(tool_calls)
 
-    print("Ollama response: ", end="", flush=True)
-    response_stream = ollama.chat(
-        model=model,
-        messages=messages,
-        options={"num_ctx": 2048},
-        stream=True,
-    )
-    for response_chunk in response_stream:
-        content = response_chunk.message.content or ""
-        print(content, end="", flush=True)
-    print()
+        if model_requested_tool:
+            messages.append(response.message)
+        else:
+            # Qwen can reason about a tool without emitting structured tool_calls.
+            tool_calls = [{
+                "function": {
+                    "arguments": {"retrievalQuery": {"text": question}},
+                },
+            }]
+
+        retrieval_failed = False
+        for tool_call in tool_calls:
+            if isinstance(tool_call, dict):
+                arguments = tool_call["function"]["arguments"]
+            else:
+                arguments = tool_call.function.arguments
+            if isinstance(arguments, str):
+                arguments = json.loads(arguments)
+            arguments = normalize_tool_arguments(arguments, original_question)
+            print("\n[Status] Waiting for MCP response...", flush=True)
+            try:
+                result = call_remote_tool(gateway_url, access_token, arguments)
+            except (requests.RequestException, RuntimeError) as error:
+                print(f"[MCP error] {error}", flush=True)
+                print("[Status] No answer generated because retrieval failed.")
+                retrieval_failed = True
+                break
+
+            print("[Status] MCP response received. Selecting relevant context...", flush=True)
+            question = arguments["retrievalQuery"]["text"]
+            top_chunks = select_top_chunks(question, result)
+            messages.append({
+                "role": "tool" if model_requested_tool else "user",
+                "content": json.dumps({
+                    "question": question,
+                    "top_k": len(top_chunks),
+                    "results": top_chunks,
+                }),
+            })
+
+        if retrieval_failed:
+            continue
+
+        print("[Status] Context ready. Generating the answer...", flush=True)
+
+        print("\nAssistant: ", end="", flush=True)
+        response_stream = ollama.chat(
+            model=model,
+            messages=messages,
+            options={"num_ctx": OLLAMA_CONTEXT_SIZE},
+            stream=True,
+        )
+        answer_parts = []
+        for response_chunk in response_stream:
+            content = response_chunk.message.content or ""
+            answer_parts.append(content)
+            print(content, end="", flush=True)
+        print()
+        print_sources(top_chunks)
+        messages.append({"role": "assistant", "content": "".join(answer_parts)})
 
 
 if __name__ == "__main__":    
